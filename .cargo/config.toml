@@ -1,0 +1,7 @@
+[build]
+target = "powerpc-nintendo-wii.json"
+rustflags = "-Clink-arg=-Trevolution.ld"
+
+[unstable]
+build-std = ["core"]
+
