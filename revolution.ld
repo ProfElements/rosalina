@@ -31,10 +31,33 @@ SECTIONS {
   }
 
   .bss : {
+    bss_start = .;
     *(.bss)
     *(.bss.*)
     . = ALIGN(32);
+    bss_end = .;
+  }   
+  .sdata : {
+      PROVIDE(SDA_BASE = .);
+      *(.sdata)
+      *(.sdata.*)
+      .  = ALIGN(32);
   }
+
+  .sdata2 : {
+      PROVIDE(SDA2_BASE = .);
+      *(.sdata2)
+      *(.sdata2.*)
+      . = ALIGN(32);
+  }
+
+  .sbss : {
+    sbss_start = .;
+    *(.sbss)
+    *(.sbss.*)
+    . = ALIGN(32);
+    sbss_end = .; 
+  } 
 
   /* debugging sections */
   /* Stabs */
