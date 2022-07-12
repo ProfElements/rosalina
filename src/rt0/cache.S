@@ -135,3 +135,52 @@ data_cache_flush_range:
   bdnz 2b
   sc
   blr
+
+
+
+
+
+
+
+
+
+
+
+
+.global data_cache_flush_range_no_sync
+data_cache_flush_range_no_sync:
+  cmplwi 4,0 //Compare r4 to 0 
+  blelr //branch back less then or equal to 0 
+  clrlwi 5,3,27 //r5 //r3
+  beq 1f
+  addi 4,4,0x20
+1:  
+  addi 4,4,0x1F //r4 //r4
+  srwi 4,4,5 //r4 //r4
+  mtctr 4 //r4
+2:
+  dcbf 0,3 //r0 //r3
+  addi 3,3,0x20
+  bdnz 2b
+  blr
+
+.global instruction_cache_invalidate_range
+instruction_cache_invalidate_range:
+  cmplwi 4,0 //r4 
+  blelr
+  clrlwi 5,3,27 //r5 //r3
+  beq 1f
+  addi 4,4,0x20
+1:  
+  addi 4,4,0x1F //r4 //r4
+  srwi 4,4,5 //r4 //r4
+  mtctr 4 //r4
+2:
+  icbi 0,3 //r0 //r3
+  addi 3,3,0x20
+  bdnz 2b
+  sync
+  isync
+  blr
+
+

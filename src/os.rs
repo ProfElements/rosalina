@@ -1,6 +1,6 @@
 use linked_list_allocator::LockedHeap;
 
-use crate::interrupts;
+use crate::{interrupts, exception::{exception_init, systemcall_init}};
 
 pub enum SystemState {
     BeforeInit,
@@ -12,15 +12,18 @@ pub enum SystemState {
 }
 
 pub struct OS {
-    system_state: SystemState
+    system_state: SystemState,
 }
 
 pub static MEM1_ALLOCATOR: LockedHeap = LockedHeap::empty();
+
+#[global_allocator]
 pub static MEM2_ALLOCATOR: LockedHeap = LockedHeap::empty();
+
 pub static IPC_ALLOCATOR: LockedHeap = LockedHeap::empty();
 
 extern "C" {
-    type LinkerSymbol;
+    pub type LinkerSymbol;
 }
 
 impl LinkerSymbol {
@@ -48,15 +51,16 @@ pub const IPC_HI: usize = 0x93400000;
 
 impl OS {
     pub fn init() -> Self {
-        let isr = interrupts::disable();       
+        let isr = interrupts::disable();
         unsafe {
             low_mem_init();
             ipc_buffer_init();
-            //exception_init(); 
+            exception_init();
+            systemcall_init();
         }
 
         Self {
-            system_state: SystemState::BeforeInit
+            system_state: SystemState::BeforeInit,
         }
     }
 }
@@ -73,5 +77,3 @@ unsafe fn low_mem_init() {
 unsafe fn ipc_buffer_init() {
     IPC_ALLOCATOR.lock().init(IPC_LO, IPC_HI - IPC_LO);
 }
-
-

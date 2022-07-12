@@ -3,11 +3,7 @@ use core::arch::asm;
 use alloc::boxed::Box;
 use spin::RwLock;
 
-use crate::interrupts;
-
-use crate::interrupts;
-use crate::os::SystemState;
-use crate::os::SystemState;
+use crate::rt0::{EXCEPTION_HANDLER_START, EXCEPTION_HANDLER_END, SYSTEMCALL_HANDLER_START, SYSTEMCALL_HANDLER_END, data_cache_flush_range_no_sync, instruction_cache_invalidate_range};
 
 const NUM_EXCEPTIONS: usize = 15;
 
@@ -32,8 +28,8 @@ pub enum Exception {
     Thermal,
 }
 
-impl From<usize> for Exception {
-    fn from(id: usize) -> Self {
+impl Exception {
+    fn from_id(id: usize) -> Self {
         match id {
             0 => Self::SystemReset,
             1 => Self::MachineCheck,
@@ -53,11 +49,8 @@ impl From<usize> for Exception {
             _ => Self::SystemReset,
         }
     }
-}
-
-impl From<Exception> for usize {
-    fn from(id: Exception) -> Self {
-        match id {
+    fn into_id(&self) -> usize {
+        match self {
             Exception::SystemReset => 0,
             Exception::MachineCheck => 1,
             Exception::Dsi => 2,
@@ -75,10 +68,7 @@ impl From<Exception> for usize {
             Exception::Thermal => 14,
         }
     }
-}
-
-impl Exception {
-    pub fn name(&self) -> &'static str {
+   pub fn name(&self) -> &'static str {
         match self {
             Self::SystemReset => "System Reset",
             Self::MachineCheck => "Machine Check",
@@ -100,21 +90,21 @@ impl Exception {
 
     pub fn loc(&self) -> usize {
         match self {
-            Self::SystemReset => 0x100,
-            Self::MachineCheck => 0x200,
-            Self::Dsi => 0x300,
-            Self::Isi => 0x400,
-            Self::Interrupt => 0x500,
-            Self::Alignment => 0x600,
-            Self::Program => 0x700,
-            Self::FloatingPoint => 0x800,
-            Self::Decremeter => 0x900,
-            Self::SystemCall => 0xC00,
-            Self::Trace => 0xD00,
-            Self::Performance => 0xF00,
-            Self::Iabr => 0x1300,
-            Self::Reserved => 0x1400,
-            Self::Thermal => 0x1700,
+            Self::SystemReset =>   0x80000100,
+            Self::MachineCheck =>  0x80000200,
+            Self::Dsi =>           0x80000300,
+            Self::Isi =>           0x80000400,
+            Self::Interrupt =>     0x80000500,
+            Self::Alignment =>     0x80000600,
+            Self::Program =>       0x80000700,
+            Self::FloatingPoint => 0x80000800,
+            Self::Decremeter =>    0x80000900,
+            Self::SystemCall =>    0x80000C00,
+            Self::Trace =>         0x80000D00,
+            Self::Performance =>   0x80000F00,
+            Self::Iabr =>          0x80001300,
+            Self::Reserved =>      0x80001400,
+            Self::Thermal =>       0x80001700,
         }
     }
 }
@@ -166,7 +156,7 @@ where
 {
     print!(
         "Registering exception handler for {} Exception",
-        Exception::from(exception_id).name()
+        Exception::from_id(exception_id).name()
     );
     EXCEPTION_TABLE[exception_id].set(f);
 }
@@ -185,12 +175,14 @@ pub fn _default_exception_handler(
     exception_id: usize,
     frame: &ExceptionFrame,
 ) -> Result<(), &'static str> {
-    
-    print!("Exception {} has occured!", Exception::from(exception_id).name()); 
+    print!(
+        "Exception {} has occured!",
+        Exception::from_id(exception_id).name()
+    );
 
     // PRINT REGISTERS
     print!(
-         "GPR00 {:X?}, GPR08 {:X?}, GPR16 {:X?}, GPR24: {:X?}\n",
+        "GPR00 {:X?}, GPR08 {:X?}, GPR16 {:X?}, GPR24: {:X?}\n",
         frame.gprs[0], frame.gprs[8], frame.gprs[16], frame.gprs[24]
     );
     print!(
@@ -227,9 +219,9 @@ pub fn _default_exception_handler(
         frame.lr, frame.srr0, frame.srr1, frame.msr
     );
     print!("DAR: {:X?}, DSISR: {:X?}\n", mfspr(19), mfspr(18));
-        
+
     //PRINT STACK SOMEHOW
-        
+
     //DSI OR FP STUFF
     //
 
@@ -237,40 +229,47 @@ pub fn _default_exception_handler(
 }
 
 fn mfspr(spr: i32) -> i32 {
-
     let mut outspr = 0;
 
-    unsafe { asm!("mfspr {0},{1}", out(reg) outspr, in(reg)spr); }
+    unsafe {
+        asm!("mfspr {0},{1}", out(reg) outspr, in(reg)spr);
+    }
     outspr
 }
 /*
+extern "C" {
+    pub static EXCEPTION_HANDLER_START: LinkerSymbol;
+    pub static EXCEPTION_HANDLER_END: LinkerSymbol;
+}
+*/
+
 pub unsafe fn exception_init() {
     for n in 0..NUM_EXCEPTIONS {
         exception_load(
-            Exception::from(n),
-            exception_handler_start,
-            (exception_handler_end - exception_handler_start),
-            exception_handler_patch,
+            Exception::from_id(n),
+            EXCEPTION_HANDLER_START.as_ptr(),
+            EXCEPTION_HANDLER_END.as_usize() - EXCEPTION_HANDLER_START.as_usize(),
+            core::ptr::null(),
         );
-        exception_set_handler(Exception::from(n), default_exception_handler);
-    }
-
-    exception_set_handler(Exception::FloatingPoint, fpu_exception_handler);
-    exception_set_handler(Exception::Interrupt, irq_exception_handler);
-    exception_set_handler(Exception::Decremeter, decremeter_exception_handler);
-}
-
-unsafe fn exception_load(exception: Exception, data: *const u8, len: usize, patch: *const u8) {
-    let addr = 0x80000000 | exception.loc();
-    memcpy(addr as *mut u8, data, len);
-    if !patch.is_null() {
-        let exception_id: usize = exception.into();
-        *((addr + (patch as usize - data as usize)) as *mut u32) |= exception_id as u32;
     }
 }
 
-unsafe fn exception_set_handler<T>(exception: Exception, data: T) {
-    todo!()
+unsafe fn exception_load(exception: Exception, data: *const u8, len: usize, _patch: *const u8) {
+    let addr = exception.loc();
+    print!("Loading Exception: {} at location: {:02X?}\n", exception.name(), addr);
+    let len = len + 2;
+    core::ptr::copy_nonoverlapping(data, addr as *const u8 as *mut u8, len);
+    data_cache_flush_range_no_sync(addr as *const u8, len as u32);
+    instruction_cache_invalidate_range(addr as *const u8, len as u32);
+    asm!("sync");
 }
 
-*/
+pub unsafe fn systemcall_init() {
+   exception_load(Exception::SystemCall, SYSTEMCALL_HANDLER_START.as_ptr(), SYSTEMCALL_HANDLER_END.as_usize() - SYSTEMCALL_HANDLER_START.as_usize(), core::ptr::null()); 
+}
+
+#[inline(never)]
+#[no_mangle]
+pub unsafe extern "C" fn exception_handler() {
+    loop {}
+}
