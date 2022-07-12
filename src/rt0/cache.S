@@ -117,3 +117,21 @@ l2_cache_global_invalidate:
   addi 1,1,8 //sp /sp
   mtlr 0 //r0
   blr
+
+.globl data_cache_flush_range
+data_cache_flush_range:
+  cmplwi 4,0 //r4
+  blelr
+  clrlwi. 5,3,27 //r5 //r3
+  beq 1f
+  addi 4,4,0x20 //r4 //r4
+1:
+  addi 4,4,0x1f //r4 //r4
+  srwi 4,4,5 //r4 //r4
+  mtctr 4 //r4
+2:
+  dcbf 0,3 //r0 //r3
+  addi 3,3,0x20
+  bdnz 2b
+  sc
+  blr
