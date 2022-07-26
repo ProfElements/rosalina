@@ -3,8 +3,7 @@
 
 extern crate alloc;
 
-mod experiments;
-
+pub mod exception;
 pub mod interrupts;
 pub mod os;
 mod rt0;
@@ -27,4 +26,3 @@ macro_rules! print  {
     };
 }
 
-mod exception;

@@ -1,6 +1,6 @@
 use linked_list_allocator::LockedHeap;
 
-use crate::{interrupts, exception::{exception_init, systemcall_init}};
+use crate::{exception::ExceptionSystem, interrupts};
 
 pub enum SystemState {
     BeforeInit,
@@ -11,9 +11,7 @@ pub enum SystemState {
     Failed,
 }
 
-pub struct OS {
-    system_state: SystemState,
-}
+pub struct OS;
 
 pub static MEM1_ALLOCATOR: LockedHeap = LockedHeap::empty();
 
@@ -51,17 +49,15 @@ pub const IPC_HI: usize = 0x93400000;
 
 impl OS {
     pub fn init() -> Self {
-        let isr = interrupts::disable();
+        let _isr = interrupts::disable();
         unsafe {
             low_mem_init();
             ipc_buffer_init();
-            exception_init();
-            systemcall_init();
         }
 
-        Self {
-            system_state: SystemState::BeforeInit,
-        }
+       ExceptionSystem::init();
+        
+        Self
     }
 }
 

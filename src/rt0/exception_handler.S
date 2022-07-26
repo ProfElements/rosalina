@@ -1,7 +1,16 @@
 
 .global EXCEPTION_HANDLER_START
 EXCEPTION_HANDLER_START:
-  bl exception_handler
+  mfmsr 4
+  ori 4,4,0x00000020|0x00000010
+  mtsrr1 4
+  lis 5,exception_handler@h
+  ori 5,5,exception_handler@l
+  mtsrr0 5
+  bl 1f
+1:
+  mflr 3
+  subi 3,3,0x1c
   rfi
 .global EXCEPTION_HANDLER_END
 EXCEPTION_HANDLER_END:

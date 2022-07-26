@@ -2,131 +2,18 @@ use core::arch::asm;
 
 use alloc::boxed::Box;
 use spin::RwLock;
+use strum::IntoEnumIterator;
+use strum_macros::{Display, EnumIter};
 
-use crate::rt0::{EXCEPTION_HANDLER_START, EXCEPTION_HANDLER_END, SYSTEMCALL_HANDLER_START, SYSTEMCALL_HANDLER_END, data_cache_flush_range_no_sync, instruction_cache_invalidate_range};
+use crate::rt0::{
+    data_cache_flush_range_no_sync, instruction_cache_invalidate_range, EXCEPTION_HANDLER_END,
+    EXCEPTION_HANDLER_START, SYSTEMCALL_HANDLER_END, SYSTEMCALL_HANDLER_START,
+};
 
-const NUM_EXCEPTIONS: usize = 15;
+use crate::print;
 
-static EXCEPTION_TABLE: [ExceptionHandler; NUM_EXCEPTIONS] =
-    [const { ExceptionHandler::new() }; NUM_EXCEPTIONS];
-
-pub enum Exception {
-    SystemReset,
-    MachineCheck,
-    Dsi,
-    Isi,
-    Interrupt,
-    Alignment,
-    Program,
-    FloatingPoint,
-    Decremeter,
-    SystemCall,
-    Trace,
-    Performance,
-    Iabr,
-    Reserved,
-    Thermal,
-}
-
-impl Exception {
-    fn from_id(id: usize) -> Self {
-        match id {
-            0 => Self::SystemReset,
-            1 => Self::MachineCheck,
-            2 => Self::Dsi,
-            3 => Self::Isi,
-            4 => Self::Interrupt,
-            5 => Self::Alignment,
-            6 => Self::Program,
-            7 => Self::FloatingPoint,
-            8 => Self::Decremeter,
-            9 => Self::SystemCall,
-            10 => Self::Trace,
-            11 => Self::Performance,
-            12 => Self::Iabr,
-            13 => Self::Reserved,
-            14 => Self::Thermal,
-            _ => Self::SystemReset,
-        }
-    }
-    fn into_id(&self) -> usize {
-        match self {
-            Exception::SystemReset => 0,
-            Exception::MachineCheck => 1,
-            Exception::Dsi => 2,
-            Exception::Isi => 3,
-            Exception::Interrupt => 4,
-            Exception::Alignment => 5,
-            Exception::Program => 6,
-            Exception::FloatingPoint => 7,
-            Exception::Decremeter => 8,
-            Exception::SystemCall => 9,
-            Exception::Trace => 10,
-            Exception::Performance => 11,
-            Exception::Iabr => 12,
-            Exception::Reserved => 13,
-            Exception::Thermal => 14,
-        }
-    }
-   pub fn name(&self) -> &'static str {
-        match self {
-            Self::SystemReset => "System Reset",
-            Self::MachineCheck => "Machine Check",
-            Self::Dsi => "DSI",
-            Self::Isi => "ISI",
-            Self::Interrupt => "Interrupt",
-            Self::Alignment => "Alignment",
-            Self::Program => "Program",
-            Self::FloatingPoint => "Floating Point",
-            Self::Decremeter => "Decremeter",
-            Self::SystemCall => "System Call",
-            Self::Trace => "Trace",
-            Self::Performance => "Performance",
-            Self::Iabr => "IABR",
-            Self::Reserved => "Reserved",
-            Self::Thermal => "Thermal",
-        }
-    }
-
-    pub fn loc(&self) -> usize {
-        match self {
-            Self::SystemReset =>   0x80000100,
-            Self::MachineCheck =>  0x80000200,
-            Self::Dsi =>           0x80000300,
-            Self::Isi =>           0x80000400,
-            Self::Interrupt =>     0x80000500,
-            Self::Alignment =>     0x80000600,
-            Self::Program =>       0x80000700,
-            Self::FloatingPoint => 0x80000800,
-            Self::Decremeter =>    0x80000900,
-            Self::SystemCall =>    0x80000C00,
-            Self::Trace =>         0x80000D00,
-            Self::Performance =>   0x80000F00,
-            Self::Iabr =>          0x80001300,
-            Self::Reserved =>      0x80001400,
-            Self::Thermal =>       0x80001700,
-        }
-    }
-}
-
-pub struct ExceptionFrame {
-    srr0: u32,
-    srr1: u32,
-    gprs: [u32; 32],
-    gqrs: [u32; 8],
-    cr: u32,
-    lr: u32,
-    ctr: u32,
-    xer: u32,
-    msr: u32,
-    dar: u32,
-
-    state: u16,
-
-    fprs: [f64; 32],
-    psfprs: [f64; 32],
-    fpscr: u64,
-}
+static EXCEPTION_TABLE: [ExceptionHandler; Exception::COUNT] =
+    [const { ExceptionHandler::new() }; Exception::COUNT];
 
 type DynExceptionHandler =
     dyn Fn(usize, &ExceptionFrame) -> Result<(), &'static str> + Send + Sync + 'static;
@@ -150,34 +37,210 @@ impl ExceptionHandler {
     }
 }
 
-pub fn register_exception_handler<F>(exception_id: usize, f: F)
-where
-    F: Fn(usize, &ExceptionFrame) -> Result<(), &'static str> + Send + Sync + 'static,
-{
-    print!(
-        "Registering exception handler for {} Exception",
-        Exception::from_id(exception_id).name()
-    );
-    EXCEPTION_TABLE[exception_id].set(f);
+#[derive(Default)]
+pub struct ExceptionFrame {
+    srr0: u32,
+    srr1: u32,
+    gprs: [u32; 32],
+    gqrs: [u32; 8],
+    cr: u32,
+    lr: u32,
+    ctr: u32,
+    xer: u32,
+    msr: u32,
+    dar: u32,
+
+    state: u16,
+
+    fprs: [f64; 32],
+    psfprs: [f64; 32],
+    fpscr: u64,
 }
 
-pub fn invoke_exception_handler(
-    interrupt_id: usize,
-    frame: &ExceptionFrame,
-) -> Result<(), &'static str> {
-    match EXCEPTION_TABLE[interrupt_id].f.read().as_ref() {
-        Some(f) => f(interrupt_id, frame),
-        None => Ok(()),
+#[derive(EnumIter, Display, Copy, Clone, Debug, PartialEq)]
+#[repr(u32)]
+pub enum Exception {
+    #[strum(serialize = "System Reset")]
+    SystemReset,
+    #[strum(serialize = "Machine Check")]
+    MachineCheck,
+    Dsi,
+    Isi,
+    Interrupt,
+    Alignment,
+    Program,
+    #[strum(serialize = "Floating Point")]
+    FloatingPoint,
+    Decrementer,
+    #[strum(serialize = "System Call")]
+    SystemCall,
+    Trace,
+    Performance,
+    Iabr,
+    Reserved,
+    Thermal,
+}
+
+impl Exception {
+    const COUNT: usize = 15;
+    pub fn id(&self) -> usize {
+        match self {
+            Exception::SystemReset => 0,
+            Exception::MachineCheck => 1,
+            Exception::Dsi => 2,
+            Exception::Isi => 3,
+            Exception::Interrupt => 4,
+            Exception::Alignment => 5,
+            Exception::Program => 6,
+            Exception::FloatingPoint => 7,
+            Exception::Decrementer => 8,
+            Exception::SystemCall => 9,
+            Exception::Trace => 10,
+            Exception::Performance => 11,
+            Exception::Iabr => 12,
+            Exception::Reserved => 13,
+            Exception::Thermal => 14,
+        }
+    }
+
+    pub fn addr(&self) -> usize {
+        match self {
+            Exception::SystemReset => 0x80000100,
+            Exception::MachineCheck => 0x80000200,
+            Exception::Dsi => 0x80000300,
+            Exception::Isi => 0x80000400,
+            Exception::Interrupt => 0x80000500,
+            Exception::Alignment => 0x80000600,
+            Exception::Program => 0x80000700,
+            Exception::FloatingPoint => 0x80000800,
+            Exception::Decrementer => 0x80000900,
+            Exception::SystemCall => 0x80000C00,
+            Exception::Trace => 0x80000D00,
+            Exception::Performance => 0x80000F00,
+            Exception::Iabr => 0x80001300,
+            Exception::Reserved => 0x80001400,
+            Exception::Thermal => 0x80001700,
+        }
+    }
+
+    pub fn from_id(id: usize) -> Option<Self> {
+        match id {
+            0 => Some(Exception::SystemReset),
+            1 => Some(Exception::MachineCheck),
+            2 => Some(Exception::Dsi),
+            3 => Some(Exception::Isi),
+            4 => Some(Exception::Interrupt),
+            5 => Some(Exception::Alignment),
+            6 => Some(Exception::Program),
+            7 => Some(Exception::FloatingPoint),
+            8 => Some(Exception::Decrementer),
+            9 => Some(Exception::SystemCall),
+            10 => Some(Exception::Trace),
+            11 => Some(Exception::Performance),
+            12 => Some(Exception::Iabr),
+            13 => Some(Exception::Reserved),
+            14 => Some(Exception::Thermal),
+            _ => None,
+        }
+    }
+
+    pub fn from_addr(addr: usize) -> Option<Self> {
+        match addr {
+            0x80000100 => Some(Exception::SystemReset),
+            0x80000200 => Some(Exception::MachineCheck),
+            0x80000300 => Some(Exception::Dsi),
+            0x80000400 => Some(Exception::Isi),
+            0x80000500 => Some(Exception::Interrupt),
+            0x80000600 => Some(Exception::Alignment),
+            0x80000700 => Some(Exception::Program),
+            0x80000800 => Some(Exception::FloatingPoint),
+            0x80000900 => Some(Exception::Decrementer),
+            0x80000C00 => Some(Exception::SystemCall),
+            0x80000D00 => Some(Exception::Trace),
+            0x80000F00 => Some(Exception::Performance),
+            0x80001300 => Some(Exception::Iabr),
+            0x80001400 => Some(Exception::Reserved),
+            0x80001700 => Some(Exception::Thermal),
+            _ => None,
+        }
     }
 }
 
-pub fn _default_exception_handler(
+pub struct ExceptionSystem;
+
+impl ExceptionSystem {
+    pub fn init() {
+        for exception in Exception::iter() {
+            if exception == Exception::SystemCall {
+                unsafe {
+                    Self::load_exception_handler(
+                        exception,
+                        SYSTEMCALL_HANDLER_START.as_ptr(),
+                        SYSTEMCALL_HANDLER_END.as_usize() - SYSTEMCALL_HANDLER_START.as_usize(),
+                    );
+                }
+                continue;
+            }
+
+            unsafe {
+                Self::load_exception_handler(
+                    exception,
+                    EXCEPTION_HANDLER_START.as_ptr(),
+                    EXCEPTION_HANDLER_END.as_usize() - EXCEPTION_HANDLER_START.as_usize(),
+                );
+            }
+            Self::set_exception_handler(exception, default_exception_handler);
+        }
+    }
+
+    pub unsafe fn load_exception_handler(
+        exception: Exception,
+        asm_start: *const u8,
+        asm_len: usize,
+    ) {
+        let addr = exception.addr();
+        let addr_ptr = addr as *mut u8;
+
+        print!(
+            "Loading exception handler for  {} Exception at address: {}\n",
+            exception, addr
+        );
+
+        core::ptr::copy_nonoverlapping(asm_start, addr_ptr, asm_len);
+        data_cache_flush_range_no_sync(addr_ptr, asm_len.try_into().unwrap());
+        instruction_cache_invalidate_range(addr_ptr, asm_len.try_into().unwrap());
+
+        core::arch::asm!("sync");
+    }
+
+    pub fn set_exception_handler<F>(exception: Exception, handler: F)
+    where
+        F: Fn(usize, &ExceptionFrame) -> Result<(), &'static str> + Send + Sync + 'static,
+    {
+        print!(
+            "Registering exception handler for {} Exception at address: {}\n",
+            exception,
+            exception.addr()
+        );
+
+        EXCEPTION_TABLE[exception.id()].set(handler);
+    }
+
+    pub fn invoke_exception_handler(exception: Exception, frame: &ExceptionFrame) -> Result<(), &'static str> {
+        match EXCEPTION_TABLE[exception.id()].f.read().as_ref() {
+            Some(f) => f(exception.id(), frame),
+            None => Ok(()),
+        }
+    }
+}
+
+pub fn default_exception_handler(
     exception_id: usize,
     frame: &ExceptionFrame,
 ) -> Result<(), &'static str> {
     print!(
         "Exception {} has occured!",
-        Exception::from_id(exception_id).name()
+        Exception::from_id(exception_id).unwrap()
     );
 
     // PRINT REGISTERS
@@ -220,56 +283,25 @@ pub fn _default_exception_handler(
     );
     print!("DAR: {:X?}, DSISR: {:X?}\n", mfspr(19), mfspr(18));
 
-    //PRINT STACK SOMEHOW
-
-    //DSI OR FP STUFF
-    //
-
     Err("An Exception has Occured")
 }
 
 fn mfspr(spr: i32) -> i32 {
-    let mut outspr = 0;
+    let mut _outspr = 0;
 
     unsafe {
-        asm!("mfspr {0},{1}", out(reg) outspr, in(reg)spr);
+        asm!("mfspr {0},{1}", out(reg) _outspr, in(reg)spr);
     }
-    outspr
-}
-/*
-extern "C" {
-    pub static EXCEPTION_HANDLER_START: LinkerSymbol;
-    pub static EXCEPTION_HANDLER_END: LinkerSymbol;
-}
-*/
-
-pub unsafe fn exception_init() {
-    for n in 0..NUM_EXCEPTIONS {
-        exception_load(
-            Exception::from_id(n),
-            EXCEPTION_HANDLER_START.as_ptr(),
-            EXCEPTION_HANDLER_END.as_usize() - EXCEPTION_HANDLER_START.as_usize(),
-            core::ptr::null(),
-        );
-    }
-}
-
-unsafe fn exception_load(exception: Exception, data: *const u8, len: usize, _patch: *const u8) {
-    let addr = exception.loc();
-    print!("Loading Exception: {} at location: {:02X?}\n", exception.name(), addr);
-    let len = len + 2;
-    core::ptr::copy_nonoverlapping(data, addr as *const u8 as *mut u8, len);
-    data_cache_flush_range_no_sync(addr as *const u8, len as u32);
-    instruction_cache_invalidate_range(addr as *const u8, len as u32);
-    asm!("sync");
-}
-
-pub unsafe fn systemcall_init() {
-   exception_load(Exception::SystemCall, SYSTEMCALL_HANDLER_START.as_ptr(), SYSTEMCALL_HANDLER_END.as_usize() - SYSTEMCALL_HANDLER_START.as_usize(), core::ptr::null()); 
+    _outspr
 }
 
 #[inline(never)]
 #[no_mangle]
-pub unsafe extern "C" fn exception_handler() {
-    loop {}
+//TODO: Get a proper exception frame instead of a junk one from a random pointer :shrug:
+pub unsafe extern "C" fn exception_handler(mut addr: usize, frame: &mut ExceptionFrame) {
+    if addr < 0x80000000 { addr += 0x80000000 } 
+    if let Some(exception) = Exception::from_addr(addr) {
+        let _ = ExceptionSystem::invoke_exception_handler(exception, &frame).unwrap();   
+    }
+    core::hint::unreachable_unchecked();
 }
