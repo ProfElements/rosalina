@@ -31,11 +31,11 @@ SECTIONS {
   }
 
   .bss : {
-    bss_start = .;
+    __bss_start = .;
     *(.bss)
     *(.bss.*)
     . = ALIGN(32);
-    bss_end = .;
+    __bss_end = .;
   }   
   .sdata : {
       PROVIDE(SDA_BASE = .);
@@ -52,11 +52,11 @@ SECTIONS {
   }
 
   .sbss : {
-    sbss_start = .;
+    __sbss_start = .;
     *(.sbss)
     *(.sbss.*)
     . = ALIGN(32);
-    sbss_end = .; 
+    __sbss_end = .; 
   } 
 
   /* debugging sections */
@@ -95,8 +95,8 @@ SECTIONS {
   /DISCARD/ : { *(*) }  
 }
 
-__stack_addr = (bss_start + SIZEOF(.bss) + 0x200000 + 7) & (-8);
-__stacK_end = (bss_start + SIZEOF(.bss));
+__stack_addr = (__bss_start + SIZEOF(.bss) + 0x200000 + 7) & (-8);
+__stacK_end = (__bss_start + SIZEOF(.bss));
 
 arena1_lo = ((__stack_addr + 0x4000) + 31) & (-32);
 PROVIDE(ARENA_1_LO = arena1_lo);

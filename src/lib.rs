@@ -1,20 +1,20 @@
 #![no_std]
-#![feature(naked_functions, inline_const, asm_experimental_arch, extern_types)]
-
+#![feature(asm_experimental_arch, asm_sym, asm_const, naked_functions)]
+#![feature(inline_const, extern_types)]
 extern crate alloc;
+
+pub mod asm_runtime;
+pub mod cache;
 
 pub mod exception;
 pub mod interrupts;
 pub mod os;
-mod rt0;
-
-use core::arch::asm;
 
 #[inline(never)]
 #[no_mangle]
-pub extern "C" fn puts(unused: u32, str: *const u8) {
+pub extern "C" fn __write_console(_unused: u32, str: *const u8, size: *const u32) {
     unsafe {
-        asm!("/* {0} {1}*/", in(reg) unused, in(reg) str);
+        core::arch::asm!("/* {0} {1}*/", in(reg) str, in(reg) size);
     }
 }
 
@@ -22,7 +22,6 @@ pub extern "C" fn puts(unused: u32, str: *const u8) {
 macro_rules! print  {
     ($($arg:tt)*) => {
         let string = alloc::fmt::format(core::format_args!($($arg)*));
-        $crate::puts(0, string.as_ptr());
+        $crate::__write_console(0, string.as_ptr(), &(string.len() as u32) as *const u32);
     };
 }
-

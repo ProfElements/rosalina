@@ -28,7 +28,7 @@ impl LinkerSymbol {
     pub fn as_ptr(&'static self) -> *const u8 {
         self as *const Self as *const u8
     }
-    pub fn as_mut_ptr(&'static self) -> *const u8 {
+    pub fn as_mut_ptr(&'static self) -> *mut u8 {
         self as *const Self as *mut Self as *mut u8
     }
 
@@ -55,8 +55,8 @@ impl OS {
             ipc_buffer_init();
         }
 
-       ExceptionSystem::init();
-        
+        ExceptionSystem::init();
+
         Self
     }
 }
