@@ -236,8 +236,8 @@ impl ExceptionSystem {
         );
 
         core::ptr::copy_nonoverlapping(asm_start, addr_ptr, asm_len);
-        dc_flush_range_no_sync(addr_ptr, asm_len.try_into().unwrap());
-        ic_invalidate_range(addr_ptr, asm_len.try_into().unwrap());
+        dc_flush_range_no_sync(addr_ptr, asm_len);
+        ic_invalidate_range(addr_ptr, asm_len);
         core::arch::asm!("sync");
     }
 
@@ -634,8 +634,7 @@ pub extern "C" fn recoverable_exception_handler() {
 
 pub unsafe extern "C" fn default_exception(addr: usize, frame: *const ExceptionFrame) {
     if let Some(exception) = Exception::from_addr(0x8000_0000 + addr) {
-        let _ =
-            ExceptionSystem::invoke_exception_handler(exception, frame.as_ref().unwrap()).unwrap();
+        ExceptionSystem::invoke_exception_handler(exception, frame.as_ref().unwrap()).unwrap();
     }
 
     //loop {}
