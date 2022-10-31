@@ -2,9 +2,13 @@ use core::arch::asm;
 
 use alloc::boxed::Box;
 use spin::RwLock;
+use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
 
-use crate::exception::ExceptionFrame;
+use crate::{
+    exception::ExceptionFrame,
+    mmio::pi::{InterruptCause, InterruptMask},
+};
 
 static INTERRUPT_TABLE: [InterruptHandler; Interrupt::COUNT] =
     [const { InterruptHandler::new() }; Interrupt::COUNT];
@@ -44,10 +48,11 @@ pub enum Interrupt {
     CommandProcessor,
     Debugger,
     HighSpeedPort,
+    InterprocessControl,
 }
 
 impl Interrupt {
-    const COUNT: usize = 14;
+    const COUNT: usize = 15;
 }
 
 pub fn disable() -> usize {
@@ -63,14 +68,57 @@ pub fn disable() -> usize {
     cookie
 }
 
-pub unsafe extern "C" fn interrupt_handler(
-    addr: usize,
-    frame: &ExceptionFrame,
-) -> Result<(), &'static str> {
-    let cause = 0u32;
-    let mask = 0u32;
+pub fn interrupt_handler(_addr: usize, _frame: &ExceptionFrame) -> Result<(), &'static str> {
+    let cause: InterruptCause = InterruptCause::read();
+    let mask: InterruptMask = InterruptMask::read();
+    for (idx, interrupt) in Interrupt::iter().enumerate() {
+        let is_enabled: bool = match interrupt {
+            Interrupt::Error => cause.gp_runtime_error().into() && mask.gp_runtime_error().into(),
+            Interrupt::ResetSwitch => cause.reset_switch().into() && mask.reset_switch().into(),
+            Interrupt::DvdInterface => cause.dvd_interface().into() && mask.dvd_interface().into(),
+            Interrupt::SerialInterface => {
+                cause.serial_interface().into() && mask.serial_interface().into()
+            }
+            Interrupt::ExternalInterface => {
+                cause.external_interface().into() && mask.external_interface().into()
+            }
+            Interrupt::AudioInterface => {
+                cause.audio_interface().into() && mask.audio_interface().into()
+            }
+            Interrupt::DSP => cause.dsp_interface().into() && mask.dsp_interface().into(),
+            Interrupt::MemoryInterface => {
+                cause.memory_interface().into() && mask.memory_interface().into()
+            }
+            Interrupt::VideoInterface => {
+                cause.video_interface().into() && mask.video_interface().into()
+            }
+            Interrupt::PixelEngineToken => {
+                cause.pixel_engine_token().into() && mask.pixel_engine_token().into()
+            }
+            Interrupt::PixelEngineFinish => {
+                cause.pixel_engine_finish().into() && mask.pixel_engine_finish().into()
+            }
+            Interrupt::CommandProcessor => {
+                cause.command_fifo().into() && mask.command_fifo().into()
+            }
+            Interrupt::Debugger => cause.debug().into() && mask.debug().into(),
+            Interrupt::HighSpeedPort => {
+                cause.high_speed_port().into() && mask.high_speed_port().into()
+            }
+            Interrupt::InterprocessControl => {
+                cause.interprocess_control().into() && mask.interprocess_control().into()
+            }
+        };
 
-    cause = cause & !mask;
+        if is_enabled {
+            let res = match INTERRUPT_TABLE[idx].f.read().as_ref() {
+                Some(f) => f(idx),
+                None => Ok(()),
+            };
+
+            res?
+        }
+    }
 
     Ok(())
 }

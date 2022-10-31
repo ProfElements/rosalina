@@ -1,10 +1,11 @@
 #![no_std]
-#![feature(asm_experimental_arch, asm_sym, asm_const, naked_functions)]
+#![feature(asm_experimental_arch, asm_const, naked_functions)]
 #![feature(inline_const, extern_types)]
 extern crate alloc;
 
 pub mod asm_runtime;
 pub mod cache;
+pub mod mmio;
 
 pub mod exception;
 pub mod interrupts;

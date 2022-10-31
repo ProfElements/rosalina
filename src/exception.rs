@@ -6,6 +6,7 @@ use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
 
 use crate::cache::{dc_flush_range_no_sync, ic_invalidate_range};
+use crate::interrupts::interrupt_handler;
 use crate::os::LinkerSymbol;
 
 use crate::print;
@@ -220,6 +221,7 @@ impl ExceptionSystem {
             }
             Self::set_exception_handler(exception, default_exception_handler);
         }
+        Self::set_exception_handler(Exception::Interrupt, interrupt_handler);
     }
 
     pub unsafe fn load_exception_handler(
