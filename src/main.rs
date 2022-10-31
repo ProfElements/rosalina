@@ -15,7 +15,7 @@ extern "C" fn main() -> ! {
     unsafe { core::arch::asm!("trap") };
 
     print!("HELLO WORLD");
-    loop {}
+    panic!()
 }
 
 #[panic_handler]
@@ -31,5 +31,5 @@ fn alloc_handler(layout: Layout) -> ! {
         layout.size(),
         layout.align()
     );
-    loop {}
+    panic!()
 }
