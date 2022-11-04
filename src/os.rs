@@ -56,7 +56,7 @@ impl OS {
         }
 
         ExceptionSystem::init();
-
+        interrupts::enable();
         Self
     }
 }

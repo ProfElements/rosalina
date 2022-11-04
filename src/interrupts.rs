@@ -68,6 +68,12 @@ pub fn disable() -> usize {
     cookie
 }
 
+pub fn enable() {
+    unsafe {
+        asm!("mfmsr 3", "ori 3,3,0x8000", "mtmsr 3");
+    }
+}
+
 pub fn interrupt_handler(_addr: usize, _frame: &ExceptionFrame) -> Result<(), &'static str> {
     let cause: InterruptCause = InterruptCause::read();
     let mask: InterruptMask = InterruptMask::read();
