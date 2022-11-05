@@ -1,6 +1,6 @@
 use linked_list_allocator::LockedHeap;
 
-use crate::{exception::ExceptionSystem, interrupts};
+use crate::{exception::Exception, interrupts};
 
 pub enum SystemState {
     BeforeInit,
@@ -55,7 +55,7 @@ impl OS {
             ipc_buffer_init();
         }
 
-        ExceptionSystem::init();
+        Exception::init();
         interrupts::enable();
         Self
     }

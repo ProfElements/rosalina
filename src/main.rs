@@ -7,7 +7,7 @@ extern crate alloc;
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
 
 use rosalina::{
-    exception::{decrementer_set, Exception, ExceptionSystem},
+    exception::{decrementer_set, Exception},
     interrupts,
     os::OS,
     DOLPHIN_HLE,
@@ -18,7 +18,7 @@ extern "C" fn main() -> ! {
     let _os = OS::init();
 
     interrupts::disable();
-    ExceptionSystem::set_exception_handler(Exception::Decrementer, |_, _| {
+    Exception::set_exception_handler(Exception::Decrementer, |_, _| {
         unsafe {
             write!(DOLPHIN_HLE, "Decrementer worked").ok();
         }

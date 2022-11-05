@@ -8,8 +8,8 @@ use strum_macros::EnumIter;
 
 use crate::cache::{dc_flush_range_no_sync, ic_invalidate_range};
 use crate::interrupts::interrupt_handler;
-use crate::os::LinkerSymbol;
 
+use crate::os::LinkerSymbol;
 use crate::DOLPHIN_HLE;
 
 static EXCEPTION_TABLE: [ExceptionHandler; Exception::COUNT] =
@@ -209,11 +209,7 @@ impl Exception {
             _ => None,
         }
     }
-}
 
-pub struct ExceptionSystem;
-
-impl ExceptionSystem {
     pub fn init() {
         for exception in Exception::iter() {
             if exception == Exception::SystemCall {
@@ -393,7 +389,7 @@ pub unsafe extern "C" fn exception_handler(mut addr: usize, frame: &mut Exceptio
         addr += 0x80000000
     }
     if let Some(exception) = Exception::from_addr(addr) {
-        let _ = ExceptionSystem::invoke_exception_handler(exception, &frame).unwrap();
+        let _ = Exception::invoke_exception_handler(exception, &frame).unwrap();
     }
     core::hint::unreachable_unchecked();
 }
@@ -432,7 +428,7 @@ pub extern "C" fn systemcall_handler() {
             SPRG2 = const 274,
             SPRG3 = const 275,
             HID0 = const 1008,
-            options(noreturn)
+            options(noreturn),
         )
     }
 }
@@ -692,7 +688,7 @@ pub extern "C" fn recoverable_exception_handler() {
 // # Safety must be called from exception shim
 pub unsafe extern "C" fn default_exception(addr: usize, frame: *const ExceptionFrame) {
     if let Some(exception) = Exception::from_addr(0x8000_0000 + addr) {
-        ExceptionSystem::invoke_exception_handler(exception, frame.as_ref().unwrap()).unwrap();
+        Exception::invoke_exception_handler(exception, frame.as_ref().unwrap()).unwrap();
     }
 
     //loop {}

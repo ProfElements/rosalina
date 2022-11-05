@@ -1,6 +1,6 @@
-use core::arch::asm;
-
 use alloc::boxed::Box;
+use core::arch::asm;
+use core::fmt::Write;
 use spin::RwLock;
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
@@ -8,6 +8,7 @@ use strum_macros::{Display, EnumIter};
 use crate::{
     exception::ExceptionFrame,
     mmio::pi::{InterruptCause, InterruptMask},
+    DOLPHIN_HLE,
 };
 
 static INTERRUPT_TABLE: [InterruptHandler; Interrupt::COUNT] =
@@ -53,6 +54,23 @@ pub enum Interrupt {
 
 impl Interrupt {
     const COUNT: usize = 15;
+
+    pub fn set_interrupt_handler<F>(interrupt: Interrupt, handler: F)
+    where
+        F: Fn(usize) -> Result<(), &'static str> + Send + Sync + 'static,
+    {
+        unsafe {
+            writeln!(DOLPHIN_HLE, "Registering {} interrupt handler", interrupt).ok();
+        }
+        INTERRUPT_TABLE[(interrupt as u32) as usize].set(handler);
+    }
+
+    pub fn invoke_interrupt_handler(interrupt: Interrupt) -> Result<(), &'static str> {
+        match INTERRUPT_TABLE[interrupt as u32 as usize].f.read().as_ref() {
+            Some(f) => f(interrupt as u32 as usize),
+            None => Ok(()),
+        }
+    }
 }
 
 pub fn disable() -> usize {
