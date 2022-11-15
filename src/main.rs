@@ -4,14 +4,21 @@
 
 extern crate alloc;
 
-use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
+use core::{
+    alloc::Layout,
+    fmt::Write,
+    panic::PanicInfo,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use rosalina::{
     exception::{decrementer_set, Exception},
-    interrupts,
+    interrupts::{self, Interrupt},
     os::OS,
     DOLPHIN_HLE,
 };
+
+static RETRACE_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 #[no_mangle]
 extern "C" fn main() -> ! {
@@ -22,6 +29,11 @@ extern "C" fn main() -> ! {
         unsafe {
             write!(DOLPHIN_HLE, "Decrementer worked").ok();
         }
+        Ok(())
+    });
+
+    Interrupt::set_interrupt_handler(Interrupt::VideoInterface, |_| {
+        RETRACE_COUNT.fetch_add(1, Ordering::Acquire);
         Ok(())
     });
     decrementer_set(0xFF);
