@@ -1,6 +1,8 @@
 use bit_field::BitField;
 use voladdress::{Safe, VolAddress};
 
+use super::pi::InterruptState;
+
 pub const BASE: usize = 0xCC00_2000;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
@@ -846,5 +848,43 @@ impl DisplayInterrupt {
 
     pub fn write_three(self) {
         DISP_INT_3.write(self)
+    }
+
+    pub fn horizontal_pos(&self) -> u16 {
+        self.0.get_bits(0..=9).try_into().unwrap()
+    }
+
+    pub fn with_horizontal_pos(&mut self, pos: u16) -> &mut Self {
+        debug_assert!(pos < 2 ^ 10, "Horizontal position must be less then 1024");
+        self.0.set_bits(0..=9, pos.into());
+        self
+    }
+
+    pub fn vertical_pos(&self) -> u16 {
+        self.0.get_bits(16..=25).try_into().unwrap()
+    }
+
+    pub fn with_vertical_pos(&mut self, pos: u16) -> &mut Self {
+        debug_assert!(pos < 2 ^ 10, "Vertical position must be less then 1024");
+        self.0.set_bits(16..=25, pos.into());
+        self
+    }
+
+    pub fn enable(&self) -> Enabled {
+        self.0.get_bit(28).into()
+    }
+
+    pub fn with_enable(&mut self, enable: Enabled) -> &mut Self {
+        self.0.set_bit(28, enable.into());
+        self
+    }
+
+    pub fn status(&self) -> InterruptState {
+        self.0.get_bit(31).into()
+    }
+
+    pub fn with_status(&mut self, status: InterruptState) -> &mut Self {
+        self.0.set_bit(31, status.into());
+        self
     }
 }
