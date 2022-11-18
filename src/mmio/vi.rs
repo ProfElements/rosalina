@@ -113,7 +113,7 @@ impl From<VideoFormat> for u16 {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub enum DisplayLatch {
+pub enum DisplayLatchState {
     Off,
     On,
     OnForFieldOne,
@@ -123,7 +123,7 @@ pub enum DisplayLatch {
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct InvalidDisplayLatchError;
 
-impl TryFrom<u16> for DisplayLatch {
+impl TryFrom<u16> for DisplayLatchState {
     type Error = InvalidDisplayLatchError;
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
@@ -136,13 +136,13 @@ impl TryFrom<u16> for DisplayLatch {
     }
 }
 
-impl From<DisplayLatch> for u16 {
-    fn from(value: DisplayLatch) -> Self {
+impl From<DisplayLatchState> for u16 {
+    fn from(value: DisplayLatchState) -> Self {
         match value {
-            DisplayLatch::Off => 0,
-            DisplayLatch::OnForFieldOne => 1,
-            DisplayLatch::OnForFieldTwo => 2,
-            DisplayLatch::On => 3,
+            DisplayLatchState::Off => 0,
+            DisplayLatchState::OnForFieldOne => 1,
+            DisplayLatchState::OnForFieldTwo => 2,
+            DisplayLatchState::On => 3,
         }
     }
 }
@@ -262,20 +262,20 @@ impl DisplayConfig {
         self
     }
 
-    pub fn display_latch_one(&self) -> DisplayLatch {
+    pub fn display_latch_one(&self) -> DisplayLatchState {
         self.0.get_bits(6..=7).try_into().unwrap()
     }
 
-    pub fn with_display_latch_one(&mut self, latch: DisplayLatch) -> &mut Self {
+    pub fn with_display_latch_one(&mut self, latch: DisplayLatchState) -> &mut Self {
         self.0.set_bits(6..=7, latch.into());
         self
     }
 
-    pub fn display_latch_two(&self) -> DisplayLatch {
+    pub fn display_latch_two(&self) -> DisplayLatchState {
         self.0.get_bits(4..=5).try_into().unwrap()
     }
 
-    pub fn with_display_latch_two(&mut self, latch: DisplayLatch) -> &mut Self {
+    pub fn with_display_latch_two(&mut self, latch: DisplayLatchState) -> &mut Self {
         self.0.set_bits(4..=5, latch.into());
         self
     }
@@ -885,6 +885,102 @@ impl DisplayInterrupt {
 
     pub fn with_status(&mut self, status: InterruptState) -> &mut Self {
         self.0.set_bit(31, status.into());
+        self
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct DisplayLatch(u32);
+
+pub const DISPLAY_LATCH_ZERO: VolAddress<DisplayLatch, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x40) };
+
+pub const DISPLAY_LATCH_ONE: VolAddress<DisplayLatch, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x44) };
+
+impl From<u32> for DisplayLatch {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<DisplayLatch> for u32 {
+    fn from(value: DisplayLatch) -> Self {
+        value.0
+    }
+}
+
+pub enum Trigger {
+    Triggered,
+    Idle,
+}
+
+impl From<bool> for Trigger {
+    fn from(value: bool) -> Self {
+        match value {
+            true => Self::Triggered,
+            false => Self::Idle,
+        }
+    }
+}
+
+impl From<Trigger> for bool {
+    fn from(value: Trigger) -> Self {
+        match value {
+            Trigger::Triggered => true,
+            Trigger::Idle => false,
+        }
+    }
+}
+
+impl DisplayLatch {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read_zero() -> Self {
+        DISPLAY_LATCH_ZERO.read()
+    }
+
+    pub fn read_one() -> Self {
+        DISPLAY_LATCH_ONE.read()
+    }
+
+    pub fn write_zero(self) {
+        DISPLAY_LATCH_ZERO.write(self);
+    }
+
+    pub fn write_one(self) {
+        DISPLAY_LATCH_ONE.write(self);
+    }
+
+    pub fn horizontal_count(&self) -> u16 {
+        self.0.get_bits(0..=10).try_into().unwrap()
+    }
+
+    pub fn with_horizontal_count(&mut self, count: u16) -> &mut Self {
+        debug_assert!(count < 2 ^ 11, "Horizontal count must be less then 2048");
+        self.0.set_bits(0..=10, count.into());
+        self
+    }
+
+    pub fn vertical_count(&self) -> u16 {
+        self.0.get_bits(16..=26).try_into().unwrap()
+    }
+
+    pub fn with_vertical_count(&mut self, count: u16) -> &mut Self {
+        debug_assert!(count < 2 ^ 11, "Vertical count must be less then 2048");
+        self.0.set_bits(16..=26, count.into());
+        self
+    }
+
+    pub fn trigger_flag(&self) -> Trigger {
+        self.0.get_bit(31).into()
+    }
+
+    pub fn with_trigger_flag(&mut self, trigger: Trigger) -> &mut Self {
+        self.0.set_bit(31, trigger.into());
         self
     }
 }
