@@ -244,6 +244,11 @@ impl Exception {
         Self::set_exception_handler(Exception::Interrupt, interrupt_handler);
     }
 
+    /// # Safety
+    ///
+    /// The caller must provide valid pointers to this function.
+    /// The called must provide correct length to this function;
+    /// This must be called when exceptions are not on.
     pub unsafe fn load_exception_handler(
         exception: Exception,
         asm_start: *const u8,
@@ -685,7 +690,9 @@ pub extern "C" fn recoverable_exception_handler() {
         )
     }
 }
-// # Safety must be called from exception shim
+/// # Safety
+///
+/// This function must be called with within the `exception_handler`
 pub unsafe extern "C" fn default_exception(addr: usize, frame: *const ExceptionFrame) {
     if let Some(exception) = Exception::from_addr(0x8000_0000 + addr) {
         Exception::invoke_exception_handler(exception, frame.as_ref().unwrap()).unwrap();
