@@ -42,6 +42,8 @@ extern "C" fn main() -> ! {
         write!(DOLPHIN_HLE, "HELLO WORLD").ok();
     }
 
+    // This is required due to decrementer interrupt happening anytime within the loop
+    #[allow(clippy::empty_loop)]
     loop {}
 }
 
