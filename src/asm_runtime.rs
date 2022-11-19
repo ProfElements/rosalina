@@ -1,4 +1,4 @@
-use core::ptr::slice_from_raw_parts_mut;
+use core::{mem::MaybeUninit, ptr::slice_from_raw_parts_mut};
 
 use crate::os::LinkerSymbol;
 
@@ -410,18 +410,18 @@ unsafe extern "C" fn __clear_statics() {
     }
 
     slice_from_raw_parts_mut(
-        __bss_start.as_mut_ptr(),
+        __bss_start.as_mut_ptr().cast::<MaybeUninit<u8>>(),
         __bss_end.as_usize() - __bss_start.as_usize(),
     )
     .as_mut()
     .unwrap()
-    .fill(0x0);
+    .fill(MaybeUninit::new(0x0));
 
     slice_from_raw_parts_mut(
-        __sbss_start.as_mut_ptr(),
+        __sbss_start.as_mut_ptr().cast::<MaybeUninit<u8>>(),
         __sbss_end.as_usize() - __sbss_start.as_usize(),
     )
     .as_mut()
     .unwrap()
-    .fill(0x0);
+    .fill(MaybeUninit::new(0x0));
 }
