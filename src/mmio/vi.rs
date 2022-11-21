@@ -1562,3 +1562,12 @@ impl HorizontalBlankingStart {
         self
     }
 }
+
+pub const VI_UNKNOWN_THREE: VolAddress<VideoUnknown16, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x76) };
+
+pub const VI_UNKNOWN_FOUR: VolAddress<VideoUnknown32, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x78) };
+
+pub const VI_UNKNOWN_FIVE: VolAddress<VideoUnknown32, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x7C) };
