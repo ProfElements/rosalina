@@ -984,3 +984,581 @@ impl DisplayLatch {
         self
     }
 }
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct HorizontalSteppingWidth(u16);
+
+pub const HORIZONTAL_STEPPING_WIDTH: VolAddress<HorizontalSteppingWidth, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x48) };
+
+impl From<u16> for HorizontalSteppingWidth {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+impl From<HorizontalSteppingWidth> for u16 {
+    fn from(value: HorizontalSteppingWidth) -> Self {
+        value.0
+    }
+}
+
+impl HorizontalSteppingWidth {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read() -> Self {
+        HORIZONTAL_STEPPING_WIDTH.read()
+    }
+
+    pub fn write(self) {
+        HORIZONTAL_STEPPING_WIDTH.write(self)
+    }
+
+    pub fn width(&self) -> u16 {
+        self.0.get_bits(0..=9)
+    }
+
+    pub fn with_width(&mut self, width: u16) -> &mut Self {
+        debug_assert!(
+            width < 2 ^ 10,
+            "Horizontal stepping width must be less then 1024"
+        );
+        self.0.set_bits(0..=9, width);
+        self
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct HorizontalScale(u16);
+
+pub const HORIZONTAL_SCALE: VolAddress<HorizontalScale, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x4A) };
+
+impl From<u16> for HorizontalScale {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+impl From<HorizontalScale> for u16 {
+    fn from(value: HorizontalScale) -> Self {
+        value.0
+    }
+}
+
+impl HorizontalScale {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read() -> Self {
+        HORIZONTAL_SCALE.read()
+    }
+
+    pub fn write(self) {
+        HORIZONTAL_SCALE.write(self);
+    }
+
+    // TODO: Horizontal scale in actually a U1.8 scalar value.
+    // Figure out how to do that
+
+    pub fn horizontal_scale(&self) -> u16 {
+        self.0.get_bits(0..=8)
+    }
+
+    pub fn with_horizontal_scale(&mut self, scale: u16) -> &mut Self {
+        debug_assert!(scale < 2 ^ 9, "Horizontal scale must be less then 512");
+        self.0.set_bits(0..=8, scale);
+        self
+    }
+
+    pub fn enable(&self) -> Enabled {
+        self.0.get_bit(12).into()
+    }
+
+    pub fn with_enable(&mut self, enable: Enabled) -> &mut Self {
+        self.0.set_bit(12, enable.into());
+        self
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct FilterCoeffTableZero(u32);
+
+pub const FILTER_COEFF_TABLE_ZERO: VolAddress<FilterCoeffTableZero, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x4C) };
+
+pub const FILTER_COEFF_TABLE_ONE: VolAddress<FilterCoeffTableZero, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x50) };
+
+pub const FILTER_COEFF_TABLE_TWO: VolAddress<FilterCoeffTableZero, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x54) };
+
+impl From<u32> for FilterCoeffTableZero {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<FilterCoeffTableZero> for u32 {
+    fn from(value: FilterCoeffTableZero) -> Self {
+        value.0
+    }
+}
+
+impl FilterCoeffTableZero {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read_zero() -> Self {
+        FILTER_COEFF_TABLE_ZERO.read()
+    }
+
+    pub fn read_one() -> Self {
+        FILTER_COEFF_TABLE_ONE.read()
+    }
+
+    pub fn read_two() -> Self {
+        FILTER_COEFF_TABLE_TWO.read()
+    }
+
+    pub fn write_zero(self) {
+        FILTER_COEFF_TABLE_ZERO.write(self);
+    }
+    pub fn write_one(self) {
+        FILTER_COEFF_TABLE_ONE.write(self);
+    }
+
+    pub fn write_two(self) {
+        FILTER_COEFF_TABLE_TWO.write(self);
+    }
+
+    pub fn tap_zero(&self) -> u16 {
+        self.0.get_bits(0..=9).try_into().unwrap()
+    }
+
+    pub fn with_tap_zero(&mut self, tap: u16) -> &mut Self {
+        debug_assert!(tap < 2 ^ 10, "Tap must be less then 1024");
+        self.0.set_bits(0..=9, tap.into());
+        self
+    }
+
+    pub fn tap_one(&self) -> u16 {
+        self.0.get_bits(10..=19).try_into().unwrap()
+    }
+
+    pub fn with_tap_one(&mut self, tap: u16) -> &mut Self {
+        debug_assert!(tap < 2 ^ 10, "Tap must be less then 1024");
+        self.0.set_bits(10..=19, tap.into());
+        self
+    }
+
+    pub fn tap_two(&self) -> u16 {
+        self.0.get_bits(20..=29).try_into().unwrap()
+    }
+
+    pub fn with_tap_two(&mut self, tap: u16) -> &mut Self {
+        debug_assert!(tap < 2 ^ 10, "Tap must be less then 1024");
+        self.0.set_bits(20..=29, tap.into());
+        self
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct FilterCoeffTableOne(u32);
+
+pub const FILTER_COEFF_TABLE_THREE: VolAddress<FilterCoeffTableOne, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x58) };
+
+pub const FILTER_COEFF_TABLE_FOUR: VolAddress<FilterCoeffTableOne, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x5C) };
+
+pub const FILTER_COEFF_TABLE_FIVE: VolAddress<FilterCoeffTableOne, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x60) };
+
+pub const FILTER_COEFF_TABLE_SIX: VolAddress<FilterCoeffTableOne, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x64) };
+
+impl From<u32> for FilterCoeffTableOne {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<FilterCoeffTableOne> for u32 {
+    fn from(value: FilterCoeffTableOne) -> Self {
+        value.0
+    }
+}
+
+impl FilterCoeffTableOne {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read_three() -> Self {
+        FILTER_COEFF_TABLE_THREE.read()
+    }
+
+    pub fn read_four() -> Self {
+        FILTER_COEFF_TABLE_FOUR.read()
+    }
+
+    pub fn read_five() -> Self {
+        FILTER_COEFF_TABLE_FIVE.read()
+    }
+
+    pub fn read_six() -> Self {
+        FILTER_COEFF_TABLE_SIX.read()
+    }
+
+    pub fn write_three(self) {
+        FILTER_COEFF_TABLE_THREE.write(self);
+    }
+
+    pub fn write_four(self) {
+        FILTER_COEFF_TABLE_FOUR.write(self);
+    }
+
+    pub fn write_five(self) {
+        FILTER_COEFF_TABLE_FIVE.write(self);
+    }
+
+    pub fn write_six(self) {
+        FILTER_COEFF_TABLE_SIX.write(self);
+    }
+
+    pub fn tap_zero(&self) -> u8 {
+        self.0.get_bits(0..=7).try_into().unwrap()
+    }
+
+    pub fn with_tap_zero(&mut self, tap: u8) -> &mut Self {
+        self.0.set_bits(0..=7, tap.into());
+        self
+    }
+
+    pub fn tap_one(&self) -> u8 {
+        self.0.get_bits(8..=15).try_into().unwrap()
+    }
+
+    pub fn with_tap_one(&mut self, tap: u8) -> &mut Self {
+        self.0.set_bits(8..=15, tap.into());
+        self
+    }
+
+    pub fn tap_two(&self) -> u8 {
+        self.0.get_bits(16..=23).try_into().unwrap()
+    }
+
+    pub fn with_tap_two(&mut self, tap: u8) -> &mut Self {
+        self.0.set_bits(16..=23, tap.into());
+        self
+    }
+
+    pub fn tap_three(&self) -> u8 {
+        self.0.get_bits(24..=31).try_into().unwrap()
+    }
+
+    pub fn with_tap_three(&mut self, tap: u8) -> &mut Self {
+        self.0.set_bits(24..=31, tap.into());
+        self
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct VideoUnknown32(u32);
+
+pub const VI_UNKNOWN_ONE: VolAddress<VideoUnknown32, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x68) };
+
+impl From<u32> for VideoUnknown32 {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<VideoUnknown32> for u32 {
+    fn from(value: VideoUnknown32) -> Self {
+        value.0
+    }
+}
+
+impl VideoUnknown32 {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read_one() -> Self {
+        VI_UNKNOWN_ONE.read()
+    }
+
+    pub fn write_one(self) {
+        VI_UNKNOWN_ONE.write(self)
+    }
+
+    pub fn unknown(&self) -> u32 {
+        self.0
+    }
+
+    pub fn with_unknown(&mut self, unk: u32) -> &mut Self {
+        self.0 = unk;
+        self
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct VideoClock(u16);
+
+pub const VI_CLOCK: VolAddress<VideoClock, Safe, Safe> = unsafe { VolAddress::new(BASE + 0x6C) };
+
+impl From<u16> for VideoClock {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+impl From<VideoClock> for u16 {
+    fn from(value: VideoClock) -> Self {
+        value.0
+    }
+}
+
+#[repr(u8)]
+pub enum Clock {
+    TwentySevenMegahertz = 0,
+    FiftyFourMegahertz = 1,
+}
+
+impl From<bool> for Clock {
+    fn from(value: bool) -> Self {
+        match value {
+            true => Self::FiftyFourMegahertz,
+            false => Self::TwentySevenMegahertz,
+        }
+    }
+}
+
+impl From<Clock> for bool {
+    fn from(value: Clock) -> Self {
+        match value {
+            Clock::TwentySevenMegahertz => false,
+            Clock::FiftyFourMegahertz => true,
+        }
+    }
+}
+
+impl VideoClock {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read() -> Self {
+        VI_CLOCK.read()
+    }
+
+    pub fn write(self) {
+        VI_CLOCK.write(self)
+    }
+
+    pub fn clock(&self) -> Clock {
+        self.0.get_bit(0).into()
+    }
+
+    pub fn with_clock(&mut self, clock: Clock) -> &mut Self {
+        self.0.set_bit(0, clock.into());
+        self
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct ViselDTV(u16);
+
+pub const DTV: VolAddress<ViselDTV, Safe, Safe> = unsafe { VolAddress::new(BASE + 0x6E) };
+
+impl From<u16> for ViselDTV {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+impl From<ViselDTV> for u16 {
+    fn from(value: ViselDTV) -> Self {
+        value.0
+    }
+}
+
+impl ViselDTV {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read() -> Self {
+        DTV.read()
+    }
+
+    pub fn write(self) {
+        DTV.write(self)
+    }
+
+    pub fn dtv(&self) -> u16 {
+        self.0
+    }
+
+    pub fn with_dtv(&mut self, dtv: u16) -> &mut Self {
+        self.0 = dtv;
+        self
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct VideoUnknown16(u16);
+
+pub const VI_UNKNOWN_TWO: VolAddress<VideoUnknown16, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x70) };
+
+impl From<u16> for VideoUnknown16 {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+impl From<VideoUnknown16> for u16 {
+    fn from(value: VideoUnknown16) -> Self {
+        value.0
+    }
+}
+
+impl VideoUnknown16 {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read_two() -> Self {
+        VI_UNKNOWN_TWO.read()
+    }
+
+    pub fn write_two(self) {
+        VI_UNKNOWN_TWO.write(self);
+    }
+
+    pub fn unknown(&self) -> u16 {
+        self.0
+    }
+
+    pub fn with_unknown(&mut self, unknown: u16) -> &mut Self {
+        self.0 = unknown;
+        self
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct HorizontalBlankEnd(u16);
+
+pub const BORDER_HBE: VolAddress<HorizontalBlankEnd, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x72) };
+
+impl From<u16> for HorizontalBlankEnd {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+impl From<HorizontalBlankEnd> for u16 {
+    fn from(value: HorizontalBlankEnd) -> Self {
+        value.0
+    }
+}
+
+impl HorizontalBlankEnd {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read() -> Self {
+        BORDER_HBE.read()
+    }
+
+    pub fn write(self) {
+        BORDER_HBE.write(self);
+    }
+
+    pub fn horizontal_blanking_end(&self) -> u16 {
+        self.0.get_bits(0..=9)
+    }
+
+    pub fn with_horizontal_blanking_end(&mut self, blank: u16) -> &mut Self {
+        debug_assert!(
+            blank < 2 ^ 10,
+            "Horizontal blanking end must be less then 1024"
+        );
+        self.0.set_bits(0..=9, blank);
+        self
+    }
+
+    pub fn enable(&self) -> Enabled {
+        self.0.get_bit(15).into()
+    }
+
+    pub fn with_enable(&mut self, enable: Enabled) -> &mut Self {
+        self.0.set_bit(15, enable.into());
+        self
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct HorizontalBlankingStart(u16);
+
+pub const BORDER_HBS: VolAddress<HorizontalBlankingStart, Safe, Safe> =
+    unsafe { VolAddress::new(BASE + 0x74) };
+
+impl From<u16> for HorizontalBlankingStart {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+impl From<HorizontalBlankingStart> for u16 {
+    fn from(value: HorizontalBlankingStart) -> Self {
+        value.0
+    }
+}
+
+impl HorizontalBlankingStart {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read() -> Self {
+        BORDER_HBS.read()
+    }
+
+    pub fn write(self) {
+        BORDER_HBS.write(self);
+    }
+
+    pub fn horizontal_blanking_start(&self) -> u16 {
+        self.0.get_bits(0..=9)
+    }
+
+    pub fn with_horizontal_blanking_start(&mut self, blank: u16) -> &mut Self {
+        debug_assert!(
+            blank < 2 ^ 10,
+            "Horizontal blanking start must be less then 1024"
+        );
+        self.0.set_bits(0..=9, blank);
+        self
+    }
+}
