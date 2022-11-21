@@ -29,7 +29,7 @@ impl Write for DolphinHle {
         Ok(())
     }
 
-    fn write_fmt(mut self: &mut Self, args: core::fmt::Arguments<'_>) -> core::fmt::Result {
+    fn write_fmt(&mut self, args: core::fmt::Arguments<'_>) -> core::fmt::Result {
         if let Some(str) = args.as_str() {
             self.write_str(str)
         } else {
