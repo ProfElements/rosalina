@@ -217,6 +217,7 @@ impl From<Reset> for bool {
     }
 }
 
+#[derive(Debug)]
 pub enum Enabled {
     Enabled,
     Disabled,
@@ -354,7 +355,7 @@ impl HorizontalTimingZero {
     }
 
     pub fn with_color_burst_start(&mut self, start: u8) -> &mut Self {
-        debug_assert!(start < 2 ^ 7, "Color burst start must be less then 128");
+        debug_assert!(start < 128, "Color burst start must be less then 128");
         self.0.set_bits(24..=30, start.into());
         self
     }
@@ -364,7 +365,7 @@ impl HorizontalTimingZero {
     }
 
     pub fn with_color_burst_end(&mut self, end: u8) -> &mut Self {
-        debug_assert!(end < 2 ^ 7, "Color burst end must be less than 128");
+        debug_assert!(end < 128, "Color burst end must be less than 128");
         self.0.set_bits(16..=22, end.into());
         self
     }
@@ -374,7 +375,7 @@ impl HorizontalTimingZero {
     }
 
     pub fn with_halfline_width(&mut self, width: u16) -> &mut Self {
-        debug_assert!(width < 2 ^ 10, "Halfline width must be less than 1024");
+        debug_assert!(width < 1024, "Halfline width must be less than 1024");
         self.0.set_bits(0..=9, width.into());
         self
     }
@@ -418,7 +419,7 @@ impl HorizontalTimingOne {
 
     pub fn with_horizontal_blanking_start(&mut self, start: u16) -> &mut Self {
         debug_assert!(
-            start < 2 ^ 10,
+            start < 1024,
             "Horizontal blanking start must be less than 1024"
         );
         self.0.set_bits(17..=26, start.into());
@@ -430,10 +431,7 @@ impl HorizontalTimingOne {
     }
 
     pub fn with_horizontal_blanking_end(&mut self, end: u16) -> &mut Self {
-        debug_assert!(
-            end < 2 ^ 10,
-            "Horizontal blanking end must be less than 1024"
-        );
+        debug_assert!(end < 1024, "Horizontal blanking end must be less than 1024");
         self.0.set_bits(7..=16, end.into());
         self
     }
@@ -443,7 +441,7 @@ impl HorizontalTimingOne {
     }
 
     pub fn with_horizontal_sync_width(&mut self, width: u16) -> &mut Self {
-        debug_assert!(width < 2 ^ 7, "Horizontal sync with must be less then 128");
+        debug_assert!(width < 128, "Horizontal sync with must be less then 128");
         self.0.set_bits(0..=6, width.into());
         self
     }
@@ -497,7 +495,7 @@ impl FieldVerticalTiming {
     }
 
     pub fn with_pre_blanking(&mut self, blank: u16) -> &mut Self {
-        debug_assert!(blank < 2 ^ 10, "Pre blanking must be less then 1024");
+        debug_assert!(blank < 1024, "Pre blanking must be less then 1024");
         self.0.set_bits(0..=9, blank.into());
         self
     }
@@ -507,7 +505,7 @@ impl FieldVerticalTiming {
     }
 
     pub fn with_post_blanking(&mut self, blank: u16) -> &mut Self {
-        debug_assert!(blank < 2 ^ 10, "Post blanking must be less then 1024");
+        debug_assert!(blank < 1024, "Post blanking must be less then 1024");
         self.0.set_bits(16..=25, blank.into());
         self
     }
@@ -561,7 +559,7 @@ impl BurstBlankingInterval {
     }
 
     pub fn with_burst_start(&mut self, start: u8) -> &mut Self {
-        debug_assert!(start < 2 ^ 5, " Start must be less then 32");
+        debug_assert!(start < 32, " Start must be less then 32");
         self.0.set_bits(0..=4, start.into());
         self
     }
@@ -571,7 +569,7 @@ impl BurstBlankingInterval {
     }
 
     pub fn with_burst_end(&mut self, end: u16) -> &mut Self {
-        debug_assert!(end < 2 ^ 11, "End must be less then 2048");
+        debug_assert!(end < 2048, "End must be less then 2048");
         self.0.set_bits(5..=15, end.into());
         self
     }
@@ -581,7 +579,7 @@ impl BurstBlankingInterval {
     }
 
     pub fn with_burst_start_two(&mut self, start: u8) -> &mut Self {
-        debug_assert!(start < 2 ^ 5, " Start must be less then 32");
+        debug_assert!(start < 32, " Start must be less then 32");
         self.0.set_bits(16..=20, start.into());
         self
     }
@@ -591,7 +589,7 @@ impl BurstBlankingInterval {
     }
 
     pub fn with_burst_end_two(&mut self, end: u16) -> &mut Self {
-        debug_assert!(end < 2 ^ 11, "End must be less then 2048");
+        debug_assert!(end < 2048, "End must be less then 2048");
         self.0.set_bits(21..=31, end.into());
         self
     }
@@ -704,7 +702,7 @@ impl Framebuffer {
     }
 
     pub fn with_horizontal_offset(&mut self, offset: u8) -> &mut Self {
-        debug_assert!(offset < 2 ^ 4, "Horizontal offset must be less then 16");
+        debug_assert!(offset < 16, "Horizontal offset must be less then 16");
         self.0.set_bits(24..=27, offset.into());
         self
     }
@@ -855,7 +853,7 @@ impl DisplayInterrupt {
     }
 
     pub fn with_horizontal_pos(&mut self, pos: u16) -> &mut Self {
-        debug_assert!(pos < 2 ^ 10, "Horizontal position must be less then 1024");
+        debug_assert!(pos < 1024, "Horizontal position must be less then 1024");
         self.0.set_bits(0..=9, pos.into());
         self
     }
@@ -865,7 +863,7 @@ impl DisplayInterrupt {
     }
 
     pub fn with_vertical_pos(&mut self, pos: u16) -> &mut Self {
-        debug_assert!(pos < 2 ^ 10, "Vertical position must be less then 1024");
+        debug_assert!(pos < 1024, "Vertical position must be less then 1024");
         self.0.set_bits(16..=25, pos.into());
         self
     }
@@ -960,7 +958,7 @@ impl DisplayLatch {
     }
 
     pub fn with_horizontal_count(&mut self, count: u16) -> &mut Self {
-        debug_assert!(count < 2 ^ 11, "Horizontal count must be less then 2048");
+        debug_assert!(count < 2048, "Horizontal count must be less then 2048");
         self.0.set_bits(0..=10, count.into());
         self
     }
@@ -970,7 +968,7 @@ impl DisplayLatch {
     }
 
     pub fn with_vertical_count(&mut self, count: u16) -> &mut Self {
-        debug_assert!(count < 2 ^ 11, "Vertical count must be less then 2048");
+        debug_assert!(count < 2048, "Vertical count must be less then 2048");
         self.0.set_bits(16..=26, count.into());
         self
     }
@@ -1023,7 +1021,7 @@ impl HorizontalSteppingWidth {
 
     pub fn with_width(&mut self, width: u16) -> &mut Self {
         debug_assert!(
-            width < 2 ^ 10,
+            width < 1024,
             "Horizontal stepping width must be less then 1024"
         );
         self.0.set_bits(0..=9, width);
@@ -1071,7 +1069,7 @@ impl HorizontalScale {
     }
 
     pub fn with_horizontal_scale(&mut self, scale: u16) -> &mut Self {
-        debug_assert!(scale < 2 ^ 9, "Horizontal scale must be less then 512");
+        debug_assert!(scale < 512, "Horizontal scale must be less then 512");
         self.0.set_bits(0..=8, scale);
         self
     }
@@ -1144,7 +1142,7 @@ impl FilterCoeffTableZero {
     }
 
     pub fn with_tap_zero(&mut self, tap: u16) -> &mut Self {
-        debug_assert!(tap < 2 ^ 10, "Tap must be less then 1024");
+        debug_assert!(tap < 1024, "Tap must be less then 1024");
         self.0.set_bits(0..=9, tap.into());
         self
     }
@@ -1154,7 +1152,7 @@ impl FilterCoeffTableZero {
     }
 
     pub fn with_tap_one(&mut self, tap: u16) -> &mut Self {
-        debug_assert!(tap < 2 ^ 10, "Tap must be less then 1024");
+        debug_assert!(tap < 1024, "Tap must be less then 1024");
         self.0.set_bits(10..=19, tap.into());
         self
     }
@@ -1164,7 +1162,7 @@ impl FilterCoeffTableZero {
     }
 
     pub fn with_tap_two(&mut self, tap: u16) -> &mut Self {
-        debug_assert!(tap < 2 ^ 10, "Tap must be less then 1024");
+        debug_assert!(tap < 1024, "Tap must be less then 1024");
         self.0.set_bits(20..=29, tap.into());
         self
     }
@@ -1500,7 +1498,7 @@ impl HorizontalBlankEnd {
 
     pub fn with_horizontal_blanking_end(&mut self, blank: u16) -> &mut Self {
         debug_assert!(
-            blank < 2 ^ 10,
+            blank < 1024,
             "Horizontal blanking end must be less then 1024"
         );
         self.0.set_bits(0..=9, blank);
@@ -1555,7 +1553,7 @@ impl HorizontalBlankingStart {
 
     pub fn with_horizontal_blanking_start(&mut self, blank: u16) -> &mut Self {
         debug_assert!(
-            blank < 2 ^ 10,
+            blank < 1024,
             "Horizontal blanking start must be less then 1024"
         );
         self.0.set_bits(0..=9, blank);
