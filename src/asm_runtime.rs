@@ -226,7 +226,7 @@ unsafe extern "C" fn __init_hardware() -> ! {
         MSR_FP = const 0x2000,
         __init_ps = sym __init_ps,
         __init_fprs = sym __init_fprs,
-        __init_cache = sym __init_cache,
+        __init_cache = sym crate::cache::__init_cache,
         options(noreturn)
     )
 }
@@ -322,28 +322,6 @@ unsafe extern "C" fn __init_fprs() -> ! {
         ".double 0.0",
         MSR_FP = const 0x2000,
         HID2 = const 920,
-        options(noreturn)
-    )
-}
-
-#[no_mangle]
-#[naked]
-unsafe extern "C" fn __init_cache() -> ! {
-    core::arch::asm!(
-        "mflr 0",
-        "stw 0,4(1)",
-        "stwu 1,-16(1)",
-        "stw 31,12(1)",
-        "1:",
-        "mfspr 3,{HID0}",
-        "rlwinm. 0,3,0,16,16",
-        "bne {ic_enabled}",
-        "nop",
-        "bl {ic_enable}",
-        "b 1b",
-        HID0 = const 1008,
-        ic_enabled = sym crate::cache::ic_enabled,
-        ic_enable = sym crate::cache::ic_enable,
         options(noreturn)
     )
 }

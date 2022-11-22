@@ -1,3 +1,25 @@
+#[no_mangle]
+#[naked]
+pub(crate) unsafe extern "C" fn __init_cache() -> ! {
+    core::arch::asm!(
+        "mflr 0",
+        "stw 0,4(1)",
+        "stwu 1,-16(1)",
+        "stw 31,12(1)",
+        "1:",
+        "mfspr 3,{HID0}",
+        "rlwinm. 0,3,0,16,16",
+        "bne {ic_enabled}",
+        "nop",
+        "bl {ic_enable}",
+        "b 1b",
+        HID0 = const 1008,
+        ic_enabled = sym ic_enabled,
+        ic_enable = sym crate::cache::ic_enable,
+        options(noreturn)
+    )
+}
+
 #[naked]
 pub extern "C" fn ic_flash_invalidate() -> ! {
     unsafe {
