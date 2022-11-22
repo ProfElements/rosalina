@@ -12,6 +12,8 @@ pub mod asm_runtime;
 pub mod cache;
 pub mod mmio;
 
+pub mod vi;
+
 pub mod exception;
 pub mod interrupts;
 pub mod os;
