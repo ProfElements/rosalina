@@ -1,15 +1,25 @@
-use core::{alloc::Layout, mem, pin::Pin};
+use core::{
+    alloc::Layout,
+    fmt::Write,
+    mem,
+    pin::Pin,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use alloc::{alloc::alloc, boxed::Box};
 
-use crate::mmio::{
-    pi::{InterruptMask, Mask},
-    vi::{
-        BurstBlankingInterval, Clock, DisplayConfig, DisplayInterlacedMode, DisplayInterrupt,
-        Enabled, FieldVerticalTiming, FilterCoeffTableOne, FilterCoeffTableZero, Framebuffer,
-        HorizontalScale, HorizontalSteppingWidth, HorizontalTimingOne, HorizontalTimingZero,
-        VerticalTiming, VideoClock, VideoFormat,
+use crate::{
+    interrupts::{self, Interrupt},
+    mmio::{
+        pi::{InterruptMask, InterruptState, Mask},
+        vi::{
+            BurstBlankingInterval, Clock, DisplayConfig, DisplayInterlacedMode, DisplayInterrupt,
+            Enabled, FieldVerticalTiming, FilterCoeffTableOne, FilterCoeffTableZero, Framebuffer,
+            HorizontalScale, HorizontalSteppingWidth, HorizontalTimingOne, HorizontalTimingZero,
+            VerticalTiming, VideoClock, VideoFormat,
+        },
     },
+    DOLPHIN_HLE,
 };
 
 pub struct ViFramebuffer {
@@ -20,13 +30,15 @@ pub struct ViFramebuffer {
 
 impl ViFramebuffer {
     pub fn new(width: usize, height: usize) -> Self {
+        interrupts::disable();
+
         let slice = unsafe {
             let ptr =
                 alloc(Layout::from_size_align(width * height * mem::size_of::<u16>(), 32).unwrap());
 
             Box::from_raw(ptr.cast::<[u8; 1]>())
         };
-
+        interrupts::enable();
         Self {
             width,
             height,
@@ -40,6 +52,7 @@ pub struct VideoSystem {
     pub framebuffer: ViFramebuffer,
 }
 
+static RETRACE_COUNT: AtomicUsize = AtomicUsize::new(0);
 impl VideoSystem {
     pub fn new(framebuffer: ViFramebuffer) -> Self {
         VerticalTiming::new()
@@ -130,10 +143,45 @@ impl VideoSystem {
             .with_clock(Clock::TwentySevenMegahertz)
             .write();
 
+        Interrupt::set_interrupt_handler(Interrupt::VideoInterface, |_| {
+            RETRACE_COUNT.fetch_add(1, Ordering::Relaxed);
+
+            if DisplayInterrupt::read_zero().status() == InterruptState::Happened {
+                DisplayInterrupt::read_zero()
+                    .with_status(InterruptState::Idle)
+                    .write_zero();
+            }
+
+            if DisplayInterrupt::read_one().status() == InterruptState::Happened {
+                DisplayInterrupt::read_one()
+                    .with_status(InterruptState::Idle)
+                    .write_one();
+            }
+
+            if DisplayInterrupt::read_two().status() == InterruptState::Happened {
+                DisplayInterrupt::read_two()
+                    .with_status(InterruptState::Idle)
+                    .write_two();
+            }
+
+            if DisplayInterrupt::read_three().status() == InterruptState::Happened {
+                DisplayInterrupt::read_three()
+                    .with_status(InterruptState::Idle)
+                    .write_three();
+            }
+
+            Ok(())
+        });
+
         InterruptMask::read()
             .with_video_interface(Mask::Enabled)
             .write();
 
         Self { framebuffer }
+    }
+
+    pub fn wait_for_retrace(&self) {
+        let retcnt = RETRACE_COUNT.load(Ordering::Relaxed);
+        while RETRACE_COUNT.load(Ordering::Relaxed) == retcnt {}
     }
 }
