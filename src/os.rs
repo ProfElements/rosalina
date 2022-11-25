@@ -49,7 +49,7 @@ pub const IPC_HI: usize = 0x93400000;
 
 impl OS {
     pub fn init() -> Self {
-        let _isr = interrupts::disable();
+        interrupts::disable();
         unsafe {
             low_mem_init();
             ipc_buffer_init();

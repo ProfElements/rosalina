@@ -7,6 +7,7 @@ extern crate alloc;
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
 
 use rosalina::{
+    clock::Instant,
     exception::{decrementer_set, Exception},
     interrupts,
     os::OS,
@@ -36,11 +37,16 @@ extern "C" fn main() -> ! {
     let write_ptr = vi.framebuffer.data.as_mut_ptr().cast::<u16>();
 
     loop {
+        let time = Instant::now().ticks;
         for i in 0..(vi.framebuffer.width * vi.framebuffer.height) {
             unsafe {
                 write_ptr.offset(i.try_into().unwrap()).write(0xff80);
             }
         }
+        let diff = Instant::now().ticks - time;
+        unsafe {
+            write!(DOLPHIN_HLE, "{}", Instant { ticks: diff }.millisecs()).ok();
+        };
 
         vi.wait_for_retrace();
     }
