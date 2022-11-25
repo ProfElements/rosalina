@@ -44,7 +44,7 @@ extern "C" {
 pub const ARENA_1_HI: usize = 0x817FEFF0;
 pub const ARENA_2_LO: usize = 0x90002000;
 pub const ARENA_2_HI: usize = 0x933E0000;
-pub const IPC_LO: usize = 0x93400000;
+pub const IPC_LO: usize = 0x933e0000;
 pub const IPC_HI: usize = 0x93400000;
 
 impl OS {
@@ -64,12 +64,14 @@ impl OS {
 unsafe fn low_mem_init() {
     MEM1_ALLOCATOR
         .lock()
-        .init(ARENA_1_LO.as_usize(), ARENA_1_HI - ARENA_1_LO.as_usize());
+        .init(ARENA_1_LO.as_mut_ptr(), ARENA_1_HI - ARENA_1_LO.as_usize());
     MEM2_ALLOCATOR
         .lock()
-        .init(ARENA_2_LO, ARENA_2_HI - ARENA_2_LO);
+        .init(ARENA_2_LO as *const u8 as *mut u8, ARENA_2_HI - ARENA_2_LO);
 }
 
 unsafe fn ipc_buffer_init() {
-    IPC_ALLOCATOR.lock().init(IPC_LO, IPC_HI - IPC_LO);
+    IPC_ALLOCATOR
+        .lock()
+        .init(IPC_LO as *const u8 as *mut u8, IPC_HI - IPC_LO);
 }

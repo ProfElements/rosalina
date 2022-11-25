@@ -1,6 +1,5 @@
 use core::{
     alloc::Layout,
-    fmt::Write,
     mem,
     pin::Pin,
     sync::atomic::{AtomicUsize, Ordering},
@@ -9,7 +8,7 @@ use core::{
 use alloc::{alloc::alloc, boxed::Box};
 
 use crate::{
-    interrupts::{self, Interrupt},
+    interrupts::Interrupt,
     mmio::{
         pi::{InterruptMask, InterruptState, Mask},
         vi::{
@@ -19,7 +18,6 @@ use crate::{
             VerticalTiming, VideoClock, VideoFormat,
         },
     },
-    DOLPHIN_HLE,
 };
 
 pub struct ViFramebuffer {
@@ -30,15 +28,12 @@ pub struct ViFramebuffer {
 
 impl ViFramebuffer {
     pub fn new(width: usize, height: usize) -> Self {
-        interrupts::disable();
-
         let slice = unsafe {
             let ptr =
                 alloc(Layout::from_size_align(width * height * mem::size_of::<u16>(), 32).unwrap());
 
             Box::from_raw(ptr.cast::<[u8; 1]>())
         };
-        interrupts::enable();
         Self {
             width,
             height,
