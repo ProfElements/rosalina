@@ -8,6 +8,7 @@ use alloc::string::ToString;
 
 extern crate alloc;
 
+pub mod arch;
 pub mod asm_runtime;
 pub mod cache;
 pub mod mmio;

@@ -1,13 +1,16 @@
 use alloc::boxed::Box;
-use core::arch::asm;
 use core::fmt::Write;
 use spin::RwLock;
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
 
 use crate::{
+    arch::MachineStateRegister,
     exception::ExceptionFrame,
-    mmio::pi::{InterruptCause, InterruptMask},
+    mmio::{
+        pi::{InterruptCause, InterruptMask},
+        vi::Enabled,
+    },
     DOLPHIN_HLE,
 };
 
@@ -73,25 +76,17 @@ impl Interrupt {
     }
 }
 
-pub fn disable() -> usize {
-    let mut cookie = 0usize;
-    unsafe {
-        asm!("mfmsr 3",
-          "rlwinm. 3,{0},0,17,15",
-          "mtmsr 3",
-          "extrwi. {0},{0},1,16",
-          inout(reg) cookie,
-        );
-    }
-    cookie
+pub fn disable() {
+    MachineStateRegister::read()
+        .with_external_interrupt_enabled(Enabled::Disabled)
+        .write();
 }
 
 pub fn enable() {
-    unsafe {
-        asm!("mfmsr 3", "ori 3,3,0x8000", "mtmsr 3");
-    }
+    MachineStateRegister::read()
+        .with_external_interrupt_enabled(Enabled::Enabled)
+        .write();
 }
-
 pub fn interrupt_handler(_addr: usize, _frame: &ExceptionFrame) -> Result<(), &'static str> {
     let cause: InterruptCause = InterruptCause::read();
     let mask: InterruptMask = InterruptMask::read();
