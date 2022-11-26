@@ -43,7 +43,7 @@ extern "C" fn main() -> ! {
                 write_ptr.offset(i.try_into().unwrap()).write(0xff80);
             }
         }
-        let diff = Instant::now().ticks - time;
+        let diff = Instant::now().ticks.wrapping_sub(time);
         unsafe {
             write!(DOLPHIN_HLE, "{}", Instant { ticks: diff }.millisecs()).ok();
         };
