@@ -31,7 +31,6 @@ impl ViFramebuffer {
         let slice = unsafe {
             let ptr =
                 alloc(Layout::from_size_align(width * height * mem::size_of::<u16>(), 32).unwrap());
-
             Box::from_raw(ptr.cast::<[u8; 1]>())
         };
         Self {
@@ -98,13 +97,14 @@ impl VideoSystem {
             .write_even();
 
         Framebuffer::new()
-            .with_addr(framebuffer.data.as_ptr() as u32 - 0x8000_0000)
+            .with_addr(u32::try_from(framebuffer.data.as_ptr().addr()).unwrap() - 0x8000_0000u32)
             .with_horizontal_offset(0)
             .write_top_left();
 
         Framebuffer::new()
             .with_addr(
-                framebuffer.data.as_ptr() as u32 - 0x8000_0000 + (framebuffer.width * 2) as u32,
+                u32::try_from(framebuffer.data.as_ptr().addr()).unwrap() - 0x8000_0000
+                    + u32::try_from(framebuffer.width * 2).unwrap(),
             )
             .with_horizontal_offset(0)
             .write_bottom_left();
