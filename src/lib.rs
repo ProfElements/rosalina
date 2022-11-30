@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(asm_experimental_arch, asm_const, naked_functions)]
+#![feature(asm_experimental_arch, asm_const, naked_functions, strict_provenance)]
 #![feature(inline_const, extern_types)]
 
 use core::fmt::Write;
@@ -23,14 +23,24 @@ pub mod os;
 
 #[inline(never)]
 #[no_mangle]
-pub extern "C" fn __write_console(_unused: u32, _str: *const u8, _size: *const u32) {}
+
+pub extern "C" fn __write_console(_unused: u32, _str: *const u8, _size: *const u32) {
+    unsafe {
+        core::str::from_utf8(core::slice::from_raw_parts(
+            _str,
+            usize::try_from(*_size).unwrap(),
+        ))
+        .unwrap()
+    };
+}
 
 pub struct DolphinHle;
 pub static mut DOLPHIN_HLE: DolphinHle = DolphinHle;
 
 impl Write for DolphinHle {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        __write_console(0, s.as_ptr(), &(s.len() as u32) as *const u32);
+        let len = u32::try_from(s.len()).unwrap();
+        __write_console(0, s.as_ptr(), &len);
         Ok(())
     }
 
