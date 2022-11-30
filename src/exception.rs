@@ -255,7 +255,8 @@ impl Exception {
         asm_len: usize,
     ) {
         let addr = exception.addr();
-        let addr_ptr = addr as *mut u8;
+        //This size and pointer is always avialable to the powerpc system
+        let addr_ptr: *mut [u8; 0x100] = core::ptr::from_exposed_addr_mut(addr);
 
         writeln!(
             DOLPHIN_HLE,
@@ -264,9 +265,9 @@ impl Exception {
         )
         .ok();
 
-        core::ptr::copy_nonoverlapping(asm_start, addr_ptr, asm_len);
-        dc_flush_range_no_sync(addr_ptr, asm_len);
-        ic_invalidate_range(addr_ptr, asm_len);
+        core::ptr::copy_nonoverlapping(asm_start, addr_ptr.cast::<u8>(), asm_len);
+        dc_flush_range_no_sync(addr_ptr.cast::<u8>(), asm_len);
+        ic_invalidate_range(addr_ptr.cast::<u8>(), asm_len);
         core::arch::asm!("sync");
     }
 
