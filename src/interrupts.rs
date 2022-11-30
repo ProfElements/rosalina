@@ -65,13 +65,33 @@ impl Interrupt {
         unsafe {
             writeln!(DOLPHIN_HLE, "Registering {} interrupt handler", interrupt).ok();
         }
-        INTERRUPT_TABLE[(interrupt as u32) as usize].set(handler);
+        INTERRUPT_TABLE[interrupt.id()].set(handler);
     }
 
     pub fn invoke_interrupt_handler(interrupt: Interrupt) -> Result<(), &'static str> {
-        match INTERRUPT_TABLE[interrupt as u32 as usize].f.read().as_ref() {
-            Some(f) => f(interrupt as u32 as usize),
+        match INTERRUPT_TABLE[interrupt.id()].f.read().as_ref() {
+            Some(f) => f(interrupt.id()),
             None => Ok(()),
+        }
+    }
+
+    pub fn id(&self) -> usize {
+        match self {
+            Interrupt::Error => 0,
+            Interrupt::ResetSwitch => 1,
+            Interrupt::DvdInterface => 2,
+            Interrupt::SerialInterface => 3,
+            Interrupt::ExternalInterface => 4,
+            Interrupt::AudioInterface => 5,
+            Interrupt::DSP => 6,
+            Interrupt::MemoryInterface => 7,
+            Interrupt::VideoInterface => 8,
+            Interrupt::PixelEngineToken => 9,
+            Interrupt::PixelEngineFinish => 10,
+            Interrupt::CommandProcessor => 11,
+            Interrupt::Debugger => 12,
+            Interrupt::HighSpeedPort => 13,
+            Interrupt::InterprocessControl => 14,
         }
     }
 }
