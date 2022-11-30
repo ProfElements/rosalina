@@ -25,15 +25,20 @@ extern "C" {
 }
 
 impl LinkerSymbol {
-    pub fn as_ptr(&'static self) -> *const u8 {
-        self as *const Self as *const u8
+    pub fn as_self_ptr(&'static self) -> *const Self {
+        self
     }
+
+    pub fn as_ptr(&'static self) -> *const u8 {
+        self.as_self_ptr().cast::<u8>()
+    }
+
     pub fn as_mut_ptr(&'static self) -> *mut u8 {
-        self as *const Self as *mut Self as *mut u8
+        self.as_self_ptr().cast_mut().cast::<u8>()
     }
 
     pub fn as_usize(&'static self) -> usize {
-        self.as_ptr() as usize
+        self.as_ptr().addr()
     }
 }
 
@@ -67,11 +72,11 @@ unsafe fn low_mem_init() {
         .init(ARENA_1_LO.as_mut_ptr(), ARENA_1_HI - ARENA_1_LO.as_usize());
     MEM2_ALLOCATOR
         .lock()
-        .init(ARENA_2_LO as *const u8 as *mut u8, ARENA_2_HI - ARENA_2_LO);
+        .init(from_exposed_addr_mut(ARENA_2_LO), ARENA_2_HI - ARENA_2_LO);
 }
 
 unsafe fn ipc_buffer_init() {
     IPC_ALLOCATOR
         .lock()
-        .init(IPC_LO as *const u8 as *mut u8, IPC_HI - IPC_LO);
+        .init(from_exposed_addr_mut(IPC_LO), IPC_HI - IPC_LO);
 }
