@@ -9,6 +9,7 @@ use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
 use rosalina::{
     clock::Instant,
     exception::{decrementer_set, Exception},
+    exi::ExternalInterface,
     interrupts,
     os::OS,
     vi::{ViFramebuffer, VideoSystem},
@@ -38,14 +39,23 @@ extern "C" fn main() -> ! {
 
     loop {
         let time = Instant::now().ticks;
+
         for i in 0..(vi.framebuffer.width * vi.framebuffer.height) {
             unsafe {
                 write_ptr.offset(i.try_into().unwrap()).write(0xff80);
             }
         }
+
         let diff = Instant::now().ticks.wrapping_sub(time);
         unsafe {
-            write!(DOLPHIN_HLE, "{}", Instant { ticks: diff }.millisecs()).ok();
+            write!(
+                DOLPHIN_HLE,
+                "Rendering takes {} millisecs",
+                Instant { ticks: diff }.millisecs()
+            )
+            .ok();
+            write!(DOLPHIN_HLE, "Monotick clock: {}", Instant::now().secs()).ok();
+            write!(DOLPHIN_HLE, "RTC clock: {}", ExternalInterface::get_rtc()).ok();
         };
 
         vi.wait_for_retrace();

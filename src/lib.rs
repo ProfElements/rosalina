@@ -15,6 +15,7 @@ pub mod mmio;
 
 pub mod clock;
 
+pub mod exi;
 pub mod vi;
 
 pub mod exception;

@@ -1,6 +1,13 @@
+use core::ptr::from_exposed_addr_mut;
+
 use linked_list_allocator::LockedHeap;
 
-use crate::{exception::Exception, interrupts};
+use crate::{
+    clock::{self, TB_TIMER_CLOCK},
+    exception::Exception,
+    exi::ExternalInterface,
+    interrupts,
+};
 
 pub enum SystemState {
     BeforeInit,
@@ -61,6 +68,9 @@ impl OS {
         }
 
         Exception::init();
+        ExternalInterface::init();
+        clock::set_time(u64::from(ExternalInterface::get_rtc()) * (TB_TIMER_CLOCK * 1000u64));
+
         interrupts::enable();
         Self
     }
