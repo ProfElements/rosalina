@@ -9,6 +9,7 @@ edition = "2021"
 panic = "abort"
 
 [profile.release]
+opt-level = "s"
 panic = "abort"
 
 [dependencies]
