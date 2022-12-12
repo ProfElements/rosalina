@@ -36,7 +36,7 @@ extern "C" fn main() -> ! {
 
     let mut vi = VideoSystem::new(ViFramebuffer::new(640, 480));
     let write_ptr = vi.framebuffer.data.as_mut_ptr().cast::<u16>();
-
+    let _sram = ExternalInterface::get_sram();
     loop {
         let time = Instant::now().ticks;
 

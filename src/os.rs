@@ -7,6 +7,7 @@ use crate::{
     exception::Exception,
     exi::ExternalInterface,
     interrupts,
+    sram::Sram,
 };
 
 pub enum SystemState {
@@ -70,6 +71,7 @@ impl OS {
         Exception::init();
         ExternalInterface::init();
         clock::set_time(u64::from(ExternalInterface::get_rtc()) * (TB_TIMER_CLOCK * 1000u64));
+        Sram::init();
 
         interrupts::enable();
         Self
