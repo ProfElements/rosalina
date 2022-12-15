@@ -1,3 +1,4 @@
+use bit_field::BitField;
 use voladdress::{Safe, VolAddress};
 
 pub const BASE: usize = 0xCD006400;
@@ -65,5 +66,32 @@ impl SiOutputBuf {
 
     pub fn write_three(self) {
         SI_CHANNEL_3_OUTPUT_BUF.write(self)
+    }
+
+    pub fn output_one(&self) -> u8 {
+        self.0.get_bits(0..=7).try_into().unwrap()
+    }
+
+    pub fn with_output_one(&mut self, output: u8) -> &mut Self {
+        self.0.set_bits(0..=7, output.into());
+        self
+    }
+
+    pub fn output_zero(&self) -> u8 {
+        self.0.get_bits(8..=15).try_into().unwrap()
+    }
+
+    pub fn with_output_zero(&mut self, output: u8) -> &mut Self {
+        self.0.set_bits(8..=15, output.into());
+        self
+    }
+
+    pub fn cmd(&self) -> u8 {
+        self.0.get_bits(16..=23).try_into().unwrap()
+    }
+
+    pub fn with_cmd(&mut self, cmd: u8) -> &mut Self {
+        self.0.set_bits(16..=23, cmd.into());
+        self
     }
 }
