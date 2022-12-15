@@ -23,7 +23,10 @@ pub mod vi;
 #[inline(never)]
 #[no_mangle]
 
-pub extern "C" fn __write_console(_unused: u32, _str: *const u8, _size: *const u32) {
+/// # Safety
+///
+/// Most use a valid string pointer and length must be valid and non-zero
+pub unsafe extern "C" fn __write_console(_unused: u32, _str: *const u8, _size: *const u32) {
     unsafe {
         core::str::from_utf8(core::slice::from_raw_parts(
             _str,
@@ -39,7 +42,9 @@ pub static mut DOLPHIN_HLE: DolphinHle = DolphinHle;
 impl Write for DolphinHle {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let len = u32::try_from(s.len()).unwrap();
-        __write_console(0, s.as_ptr(), &len);
+        unsafe {
+            __write_console(0, s.as_ptr(), &len);
+        }
         Ok(())
     }
 
