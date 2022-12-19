@@ -1,6 +1,16 @@
 #![no_std]
 #![feature(asm_experimental_arch, asm_const, naked_functions, strict_provenance)]
 #![feature(inline_const, extern_types)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![allow(
+    clippy::must_use_candidate,
+    clippy::missing_panics_doc,
+    clippy::module_name_repetitions,
+    clippy::too_many_lines,
+    clippy::unreadable_literal
+)]
+//TODO: instead of disable move to 150 lines
 
 use core::fmt::Write;
 
@@ -20,19 +30,18 @@ pub mod os;
 pub mod sram;
 pub mod vi;
 
-#[inline(never)]
-#[no_mangle]
-
 /// # Safety
 ///
 /// Most use a valid string pointer and length must be valid and non-zero
-pub unsafe extern "C" fn __write_console(_unused: u32, _str: *const u8, _size: *const u32) {
+#[inline(never)]
+#[no_mangle]
+pub(crate) unsafe extern "C" fn __write_console(_unused: u32, str: *const u8, size: *const u32) {
     unsafe {
         core::str::from_utf8(core::slice::from_raw_parts(
-            _str,
-            usize::try_from(*_size).unwrap(),
+            str,
+            usize::try_from(*size).unwrap(),
         ))
-        .unwrap()
+        .unwrap_or_default()
     };
 }
 

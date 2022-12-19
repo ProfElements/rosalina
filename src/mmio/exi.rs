@@ -52,7 +52,7 @@ impl TryFrom<u32> for ExiClock {
             1 => Ok(Self::TwoMegahertz),
             2 => Ok(Self::FourMegahertz),
             3 => Ok(Self::EightMegahertz),
-            4 => Ok(ExiClock::SixteenMegahertz),
+            4 => Ok(Self::SixteenMegahertz),
             5 => Ok(Self::ThirtyTwoMegahertz),
             _ => Err(InvalidExiClockError),
         }
@@ -113,9 +113,10 @@ pub enum DeviceConnected {
 
 impl From<bool> for DeviceConnected {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Connected,
-            false => Self::Disconnected,
+        if value {
+            Self::Connected
+        } else {
+            Self::Disconnected
         }
     }
 }
@@ -136,9 +137,10 @@ pub enum RomDiscramble {
 
 impl From<bool> for RomDiscramble {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Disabled,
-            false => Self::Discramble,
+        if value {
+            Self::Disabled
+        } else {
+            Self::Discramble
         }
     }
 }
@@ -170,15 +172,15 @@ impl ExiParams {
     }
 
     pub fn write_zero(self) {
-        EXI_CHANNEL_0_PARAMS.write(self)
+        EXI_CHANNEL_0_PARAMS.write(self);
     }
 
     pub fn write_one(self) {
-        EXI_CHANNEL_1_PARAMS.write(self)
+        EXI_CHANNEL_1_PARAMS.write(self);
     }
 
     pub fn write_two(self) {
-        EXI_CHANNEL_2_PARAMS.write(self)
+        EXI_CHANNEL_2_PARAMS.write(self);
     }
 
     pub fn exi_interrupt_mask(&self) -> Mask {
@@ -329,9 +331,10 @@ pub enum DmaStart {
 
 impl From<bool> for DmaStart {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Start,
-            false => Self::Idle,
+        if value {
+            Self::Start
+        } else {
+            Self::Idle
         }
     }
 }
@@ -352,9 +355,10 @@ pub enum DmaMode {
 
 impl From<bool> for DmaMode {
     fn from(value: bool) -> Self {
-        match value {
-            true => DmaMode::Dma,
-            false => DmaMode::Immediate,
+        if value {
+            Self::Dma
+        } else {
+            Self::Immediate
         }
     }
 }
@@ -417,15 +421,15 @@ impl ExiControl {
     }
 
     pub fn write_zero(self) {
-        EXI_CHANNEL_0_CONTROL.write(self)
+        EXI_CHANNEL_0_CONTROL.write(self);
     }
 
     pub fn write_one(self) {
-        EXI_CHANNEL_1_CONTROL.write(self)
+        EXI_CHANNEL_1_CONTROL.write(self);
     }
 
     pub fn write_two(self) {
-        EXI_CHANNEL_2_CONTROL.write(self)
+        EXI_CHANNEL_2_CONTROL.write(self);
     }
 
     pub fn dma_start(&self) -> DmaStart {

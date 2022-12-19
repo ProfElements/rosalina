@@ -154,9 +154,10 @@ pub enum Display3dMode {
 
 impl From<bool> for Display3dMode {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::ThreeDimension,
-            false => Self::TwoDimension,
+        if value {
+            Self::ThreeDimension
+        } else {
+            Self::TwoDimension
         }
     }
 }
@@ -178,9 +179,10 @@ pub enum DisplayInterlacedMode {
 
 impl From<bool> for DisplayInterlacedMode {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::NonInterlaced,
-            false => Self::Interlaced,
+        if value {
+            Self::NonInterlaced
+        } else {
+            Self::Interlaced
         }
     }
 }
@@ -201,9 +203,10 @@ pub enum Reset {
 
 impl From<bool> for Reset {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Reset,
-            false => Self::NoReset,
+        if value {
+            Self::Reset
+        } else {
+            Self::NoReset
         }
     }
 }
@@ -225,9 +228,10 @@ pub enum Enabled {
 
 impl From<bool> for Enabled {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Enabled,
-            false => Self::Disabled,
+        if value {
+            Self::Enabled
+        } else {
+            Self::Disabled
         }
     }
 }
@@ -251,7 +255,7 @@ impl DisplayConfig {
     }
 
     pub fn write(self) {
-        DISPLAY_CONFIG.write(self)
+        DISPLAY_CONFIG.write(self);
     }
 
     pub fn video_format(&self) -> VideoFormat {
@@ -347,7 +351,7 @@ impl HorizontalTimingZero {
     }
 
     pub fn write(self) {
-        HORIZONTAL_TIMING_ZERO.write(self)
+        HORIZONTAL_TIMING_ZERO.write(self);
     }
 
     pub fn color_burst_start(&self) -> u8 {
@@ -547,11 +551,11 @@ impl BurstBlankingInterval {
     }
 
     pub fn write_odd(self) {
-        ODD_BURST_BLANKING_INTERVAL.write(self)
+        ODD_BURST_BLANKING_INTERVAL.write(self);
     }
 
     pub fn write_even(self) {
-        EVEN_BURST_BLANKING_INTERVAL.write(self)
+        EVEN_BURST_BLANKING_INTERVAL.write(self);
     }
 
     pub fn burst_start(&self) -> u8 {
@@ -630,9 +634,10 @@ pub enum AddrOffset {
 
 impl From<bool> for AddrOffset {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Offset,
-            false => Self::None,
+        if value {
+            Self::Offset
+        } else {
+            Self::None
         }
     }
 }
@@ -680,7 +685,7 @@ impl Framebuffer {
     }
 
     pub fn write_bottom_right(self) {
-        FRAMEBUF_B_R.write(self)
+        FRAMEBUF_B_R.write(self);
     }
 
     pub fn addr(&self) -> usize {
@@ -833,19 +838,19 @@ impl DisplayInterrupt {
     }
 
     pub fn write_zero(self) {
-        DISP_INT_0.write(self)
+        DISP_INT_0.write(self);
     }
 
     pub fn write_one(self) {
-        DISP_INT_1.write(self)
+        DISP_INT_1.write(self);
     }
 
     pub fn write_two(self) {
-        DISP_INT_2.write(self)
+        DISP_INT_2.write(self);
     }
 
     pub fn write_three(self) {
-        DISP_INT_3.write(self)
+        DISP_INT_3.write(self);
     }
 
     pub fn horizontal_pos(&self) -> u16 {
@@ -916,9 +921,10 @@ pub enum Trigger {
 
 impl From<bool> for Trigger {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Triggered,
-            false => Self::Idle,
+        if value {
+            Self::Triggered
+        } else {
+            Self::Idle
         }
     }
 }
@@ -1012,7 +1018,7 @@ impl HorizontalSteppingWidth {
     }
 
     pub fn write(self) {
-        HORIZONTAL_STEPPING_WIDTH.write(self)
+        HORIZONTAL_STEPPING_WIDTH.write(self);
     }
 
     pub fn width(&self) -> u16 {
@@ -1299,10 +1305,10 @@ impl VideoUnknown32 {
     }
 
     pub fn write_one(self) {
-        VI_UNKNOWN_ONE.write(self)
+        VI_UNKNOWN_ONE.write(self);
     }
 
-    pub fn unknown(&self) -> u32 {
+    pub const fn unknown(&self) -> u32 {
         self.0
     }
 
@@ -1338,9 +1344,10 @@ pub enum Clock {
 
 impl From<bool> for Clock {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::FiftyFourMegahertz,
-            false => Self::TwentySevenMegahertz,
+        if value {
+            Self::FiftyFourMegahertz
+        } else {
+            Self::TwentySevenMegahertz
         }
     }
 }
@@ -1364,7 +1371,7 @@ impl VideoClock {
     }
 
     pub fn write(self) {
-        VI_CLOCK.write(self)
+        VI_CLOCK.write(self);
     }
 
     pub fn clock(&self) -> Clock {
@@ -1405,10 +1412,10 @@ impl ViselDTV {
     }
 
     pub fn write(self) {
-        DTV.write(self)
+        DTV.write(self);
     }
 
-    pub fn dtv(&self) -> u16 {
+    pub const fn dtv(&self) -> u16 {
         self.0
     }
 
@@ -1450,7 +1457,7 @@ impl VideoUnknown16 {
         VI_UNKNOWN_TWO.write(self);
     }
 
-    pub fn unknown(&self) -> u16 {
+    pub const fn unknown(&self) -> u16 {
         self.0
     }
 

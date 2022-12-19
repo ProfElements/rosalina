@@ -33,15 +33,15 @@ extern "C" {
 }
 
 impl LinkerSymbol {
-    pub fn as_self_ptr(&'static self) -> *const Self {
+    pub const fn as_self_ptr(&'static self) -> *const Self {
         self
     }
 
-    pub fn as_ptr(&'static self) -> *const u8 {
+    pub const fn as_ptr(&'static self) -> *const u8 {
         self.as_self_ptr().cast::<u8>()
     }
 
-    pub fn as_mut_ptr(&'static self) -> *mut u8 {
+    pub const fn as_mut_ptr(&'static self) -> *mut u8 {
         self.as_self_ptr().cast_mut().cast::<u8>()
     }
 

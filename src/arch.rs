@@ -6,6 +6,7 @@ use crate::mmio::vi::Enabled;
 #[repr(transparent)]
 pub struct MachineStateRegister(u32);
 
+#[derive(Copy, Clone)]
 pub enum PowerManagement {
     Normal,
     Reduced,
@@ -13,9 +14,10 @@ pub enum PowerManagement {
 
 impl From<bool> for PowerManagement {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Reduced,
-            false => Self::Normal,
+        if value {
+            Self::Reduced
+        } else {
+            Self::Normal
         }
     }
 }
@@ -29,6 +31,7 @@ impl From<PowerManagement> for bool {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum Endianness {
     Little,
     Big,
@@ -36,9 +39,10 @@ pub enum Endianness {
 
 impl From<bool> for Endianness {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Little,
-            false => Self::Big,
+        if value {
+            Self::Little
+        } else {
+            Self::Big
         }
     }
 }
@@ -52,6 +56,7 @@ impl From<Endianness> for bool {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum Priviledge {
     Supervisor,
     User,
@@ -59,9 +64,10 @@ pub enum Priviledge {
 
 impl From<bool> for Priviledge {
     fn from(value: bool) -> Self {
-        match value {
-            true => Priviledge::Supervisor,
-            false => Priviledge::User,
+        if value {
+            Self::Supervisor
+        } else {
+            Self::User
         }
     }
 }
@@ -75,6 +81,7 @@ impl From<Priviledge> for bool {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum FloatingPointExceptionMode {
     Disabled,
     Nonrecoverable,
@@ -82,6 +89,7 @@ pub enum FloatingPointExceptionMode {
     Precise,
 }
 
+#[derive(Copy, Clone)]
 pub enum ExceptionPrefix {
     Zero,
     Ffff,
@@ -89,9 +97,10 @@ pub enum ExceptionPrefix {
 
 impl From<bool> for ExceptionPrefix {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Ffff,
-            false => Self::Zero,
+        if value {
+            Self::Ffff
+        } else {
+            Self::Zero
         }
     }
 }
@@ -105,6 +114,7 @@ impl From<ExceptionPrefix> for bool {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum Marked {
     Nonmarked,
     Marked,
@@ -112,9 +122,10 @@ pub enum Marked {
 
 impl From<bool> for Marked {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Marked,
-            false => Self::Nonmarked,
+        if value {
+            Self::Marked
+        } else {
+            Self::Nonmarked
         }
     }
 }
@@ -128,6 +139,7 @@ impl From<Marked> for bool {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum ExceptionMode {
     Nonrecoverable,
     Recoverable,
@@ -135,9 +147,10 @@ pub enum ExceptionMode {
 
 impl From<bool> for ExceptionMode {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Recoverable,
-            false => Self::Nonrecoverable,
+        if value {
+            Self::Recoverable
+        } else {
+            Self::Nonrecoverable
         }
     }
 }
@@ -162,7 +175,7 @@ impl MachineStateRegister {
             core::arch::asm!(
                 "mfmsr {reg}",
                 reg = out(reg) reg,
-            )
+            );
         }
         Self(reg)
     }
@@ -173,7 +186,7 @@ impl MachineStateRegister {
             core::arch::asm!(
                 "mtmsr {reg}",
                 reg = in(reg) reg,
-            )
+            );
         }
     }
 

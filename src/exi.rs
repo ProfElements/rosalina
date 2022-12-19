@@ -85,7 +85,7 @@ impl ExternalInterface {
             }
 
             Ok(())
-        })
+        });
     }
 
     pub fn get_rtc() -> u32 {

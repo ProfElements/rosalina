@@ -17,9 +17,10 @@ pub enum InterruptState {
 
 impl From<bool> for InterruptState {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Happened,
-            false => Self::Idle,
+        if value {
+            Self::Happened
+        } else {
+            Self::Idle
         }
     }
 }
@@ -41,9 +42,10 @@ pub enum ResetSwitchState {
 
 impl From<bool> for ResetSwitchState {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Idle,
-            false => Self::Pressed,
+        if value {
+            Self::Idle
+        } else {
+            Self::Pressed
         }
     }
 }
@@ -157,9 +159,10 @@ pub enum Mask {
 
 impl From<bool> for Mask {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Enabled,
-            false => Self::Disabled,
+        if value {
+            Self::Enabled
+        } else {
+            Self::Disabled
         }
     }
 }
@@ -183,7 +186,7 @@ impl InterruptMask {
     }
 
     pub fn write(self) {
-        INTERRUPT_MASK.write(self)
+        INTERRUPT_MASK.write(self);
     }
 
     pub fn gp_runtime_error(&self) -> Mask {

@@ -53,19 +53,19 @@ impl SiOutputBuf {
     }
 
     pub fn write_zero(self) {
-        SI_CHANNEL_0_OUTPUT_BUF.write(self)
+        SI_CHANNEL_0_OUTPUT_BUF.write(self);
     }
 
     pub fn write_one(self) {
-        SI_CHANNEL_1_OUTPUT_BUF.write(self)
+        SI_CHANNEL_1_OUTPUT_BUF.write(self);
     }
 
     pub fn write_two(self) {
-        SI_CHANNEL_2_OUTPUT_BUF.write(self)
+        SI_CHANNEL_2_OUTPUT_BUF.write(self);
     }
 
     pub fn write_three(self) {
-        SI_CHANNEL_3_OUTPUT_BUF.write(self)
+        SI_CHANNEL_3_OUTPUT_BUF.write(self);
     }
 
     pub fn output_one(&self) -> u8 {

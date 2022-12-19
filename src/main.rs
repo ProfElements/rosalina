@@ -65,7 +65,7 @@ extern "C" fn main() -> ! {
 #[panic_handler]
 fn panic_handler(info: &PanicInfo) -> ! {
     unsafe {
-        write!(DOLPHIN_HLE, "{}", info).ok();
+        write!(DOLPHIN_HLE, "{info}").ok();
     }
     loop {}
 }

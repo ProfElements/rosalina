@@ -8,7 +8,7 @@ impl Instant {
     pub fn now() -> Self {
         let mut time1 = 0u32;
         let time2: u32;
-        let mut _time3 = 0u32;
+        let time3 = 0u32;
 
         let mut instant = 0u64;
         unsafe {
@@ -20,7 +20,7 @@ impl Instant {
                 "bne 1b",
                 time1 = inout(reg) time1,
                 time2 = out(reg) time2,
-                 time3 = inout(reg) _time3,
+                 time3 = in(reg) time3,
             );
         }
 
@@ -30,19 +30,19 @@ impl Instant {
         Self { ticks: instant }
     }
 
-    pub fn secs(&self) -> u64 {
+    pub const fn secs(&self) -> u64 {
         self.ticks / (TB_TIMER_CLOCK * 1000)
     }
 
-    pub fn millisecs(&self) -> u64 {
+    pub const fn millisecs(&self) -> u64 {
         self.ticks / TB_TIMER_CLOCK
     }
 
-    pub fn microsecs(&self) -> u64 {
+    pub const fn microsecs(&self) -> u64 {
         (self.ticks * 8) / (TB_TIMER_CLOCK / 125)
     }
 
-    pub fn nanosecs(&self) -> u64 {
+    pub const fn nanosecs(&self) -> u64 {
         (self.ticks * 8000) / (TB_TIMER_CLOCK / 125)
     }
 }

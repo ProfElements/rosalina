@@ -35,7 +35,7 @@ impl InterruptHandler {
     }
 }
 
-#[derive(EnumIter, Display, Copy, Clone, Debug, PartialEq)]
+#[derive(EnumIter, Display, Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Interrupt {
     Error,
@@ -58,40 +58,44 @@ pub enum Interrupt {
 impl Interrupt {
     const COUNT: usize = 15;
 
-    pub fn set_interrupt_handler<F>(interrupt: Interrupt, handler: F)
+    pub fn set_interrupt_handler<F>(interrupt: Self, handler: F)
     where
         F: Fn(usize) -> Result<(), &'static str> + Send + Sync + 'static,
     {
         unsafe {
-            writeln!(DOLPHIN_HLE, "Registering {} interrupt handler", interrupt).ok();
+            writeln!(DOLPHIN_HLE, "Registering {interrupt} interrupt handler").ok();
         }
         INTERRUPT_TABLE[interrupt.id()].set(handler);
     }
 
-    pub fn invoke_interrupt_handler(interrupt: Interrupt) -> Result<(), &'static str> {
-        match INTERRUPT_TABLE[interrupt.id()].f.read().as_ref() {
-            Some(f) => f(interrupt.id()),
-            None => Ok(()),
-        }
+    /// # Errors
+    ///
+    /// This errors based on user provided function.
+    pub fn invoke_interrupt_handler(interrupt: Self) -> Result<(), &'static str> {
+        INTERRUPT_TABLE[interrupt.id()]
+            .f
+            .read()
+            .as_ref()
+            .map_or(Ok(()), |f| f(interrupt.id()))
     }
 
-    pub fn id(&self) -> usize {
+    pub const fn id(&self) -> usize {
         match self {
-            Interrupt::Error => 0,
-            Interrupt::ResetSwitch => 1,
-            Interrupt::DvdInterface => 2,
-            Interrupt::SerialInterface => 3,
-            Interrupt::ExternalInterface => 4,
-            Interrupt::AudioInterface => 5,
-            Interrupt::DSP => 6,
-            Interrupt::MemoryInterface => 7,
-            Interrupt::VideoInterface => 8,
-            Interrupt::PixelEngineToken => 9,
-            Interrupt::PixelEngineFinish => 10,
-            Interrupt::CommandProcessor => 11,
-            Interrupt::Debugger => 12,
-            Interrupt::HighSpeedPort => 13,
-            Interrupt::InterprocessControl => 14,
+            Self::Error => 0,
+            Self::ResetSwitch => 1,
+            Self::DvdInterface => 2,
+            Self::SerialInterface => 3,
+            Self::ExternalInterface => 4,
+            Self::AudioInterface => 5,
+            Self::DSP => 6,
+            Self::MemoryInterface => 7,
+            Self::VideoInterface => 8,
+            Self::PixelEngineToken => 9,
+            Self::PixelEngineFinish => 10,
+            Self::CommandProcessor => 11,
+            Self::Debugger => 12,
+            Self::HighSpeedPort => 13,
+            Self::InterprocessControl => 14,
         }
     }
 }
@@ -107,6 +111,11 @@ pub fn enable() {
         .with_external_interrupt_enabled(Enabled::Enabled)
         .write();
 }
+
+/// # Errors
+///
+/// This errors based on user provided function.
+
 pub fn interrupt_handler(_addr: usize, _frame: &ExceptionFrame) -> Result<(), &'static str> {
     let cause: InterruptCause = InterruptCause::read();
     let mask: InterruptMask = InterruptMask::read();
@@ -150,12 +159,13 @@ pub fn interrupt_handler(_addr: usize, _frame: &ExceptionFrame) -> Result<(), &'
         };
 
         if is_enabled {
-            let res = match INTERRUPT_TABLE[idx].f.read().as_ref() {
-                Some(f) => f(idx),
-                None => Ok(()),
-            };
+            let res = INTERRUPT_TABLE[idx]
+                .f
+                .read()
+                .as_ref()
+                .map_or(Ok(()), |f| f(idx));
 
-            res?
+            res?;
         }
     }
 
