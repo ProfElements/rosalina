@@ -5,4 +5,4 @@ rustflags = "-Clink-arg=-Trevolution.ld"
 [unstable]
 build-std-features = ["compiler-builtins-mem"]
 build-std = ["core", "compiler_builtins", "alloc"]
-
+sparse-registry = true
