@@ -8,19 +8,14 @@ impl Instant {
     pub fn now() -> Self {
         let mut time1 = 0u32;
         let time2: u32;
-        let time3 = 0u32;
 
         let mut instant = 0u64;
         unsafe {
             core::arch::asm!(
                 "1: mftbu {time1}",
                 "mftb {time2}",
-                "mftbu {time3}",
-                "cmpw {time1},{time3}",
-                "bne 1b",
                 time1 = inout(reg) time1,
                 time2 = out(reg) time2,
-                 time3 = in(reg) time3,
             );
         }
 
