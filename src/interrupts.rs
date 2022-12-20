@@ -1,8 +1,8 @@
 use alloc::boxed::Box;
-use core::fmt::Write;
+use core::fmt::{Display, Write};
 use spin::RwLock;
 use strum::IntoEnumIterator;
-use strum_macros::{Display, EnumIter};
+use strum_macros::EnumIter;
 
 use crate::{
     arch::MachineStateRegister,
@@ -35,7 +35,7 @@ impl InterruptHandler {
     }
 }
 
-#[derive(EnumIter, Display, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(EnumIter, Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Interrupt {
     Error,
@@ -53,6 +53,29 @@ pub enum Interrupt {
     Debugger,
     HighSpeedPort,
     InterprocessControl,
+}
+
+impl Display for Interrupt {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let str: &'static str = match self {
+            Self::Error => "Error",
+            Self::ResetSwitch => "Reset Switch",
+            Self::DvdInterface => "DVD Interface",
+            Self::SerialInterface => "Serial Interface",
+            Self::ExternalInterface => "ExternalInterface",
+            Self::AudioInterface => "AudioInterface",
+            Self::DSP => "DSP Interface",
+            Self::MemoryInterface => "Memory Interface",
+            Self::VideoInterface => "Video Interface",
+            Self::PixelEngineToken => "Pixel Engine Token",
+            Self::PixelEngineFinish => "Pixel Engine Finish",
+            Self::CommandProcessor => "Command Processor",
+            Self::Debugger => "Debugger",
+            Self::HighSpeedPort => "High Speed Port",
+            Self::InterprocessControl => "IPC/IOS Control",
+        };
+        write!(f, "{str}")
+    }
 }
 
 impl Interrupt {

@@ -82,19 +82,15 @@ impl ExceptionFrame {
 #[derive(EnumIter, Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Exception {
-    #[strum(serialize = "System Reset")]
     SystemReset,
-    #[strum(serialize = "Machine Check")]
     MachineCheck,
     Dsi,
     Isi,
     Interrupt,
     Alignment,
     Program,
-    #[strum(serialize = "Floating Point")]
     FloatingPoint,
     Decrementer,
-    #[strum(serialize = "System Call")]
     SystemCall,
     Trace,
     Performance,
