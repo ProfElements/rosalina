@@ -54,4 +54,8 @@ impl Sram {
 
         Self { buffer }
     }
+
+    pub const fn buffer(&self) -> &[u8] {
+        &self.buffer
+    }
 }
