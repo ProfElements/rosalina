@@ -1,6 +1,8 @@
 use bit_field::BitField;
 use voladdress::{Safe, VolAddress};
 
+use super::vi::Enabled;
+
 pub const BASE: usize = 0xCD006400;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
@@ -274,3 +276,156 @@ impl SiInputBufLo {
         self.0.get_bits(0..=7).try_into().unwrap()
     }
 }
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct SiPoll(u32);
+
+pub const SI_POLL: VolAddress<SiPoll, Safe, Safe> = unsafe { VolAddress::new(BASE + 0x30) };
+
+impl From<u32> for SiPoll {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<SiPoll> for u32 {
+    fn from(value: SiPoll) -> Self {
+        value.0
+    }
+}
+
+impl SiPoll {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read() -> Self {
+        SI_POLL.read()
+    }
+
+    pub fn write(self) {
+        SI_POLL.write(self);
+    }
+
+    pub fn chan_0_copy_mode(&self) -> CopyMode {
+        self.0.get_bit(0).into()
+    }
+
+    pub fn chan_1_copy_mode(&self) -> CopyMode {
+        self.0.get_bit(1).into()
+    }
+
+    pub fn chan_2_copy_mode(&self) -> CopyMode {
+        self.0.get_bit(2).into()
+    }
+
+    pub fn chan_3_copy_mode(&self) -> CopyMode {
+        self.0.get_bit(3).into()
+    }
+
+    pub fn chan_0_enable(&self) -> Enabled {
+        self.0.get_bit(4).into()
+    }
+
+    pub fn chan_1_enable(&self) -> Enabled {
+        self.0.get_bit(5).into()
+    }
+
+    pub fn chan_2_enable(&self) -> Enabled {
+        self.0.get_bit(6).into()
+    }
+
+    pub fn chan_3_enable(&self) -> Enabled {
+        self.0.get_bit(7).into()
+    }
+
+    pub fn x_poll_time(&self) -> u8 {
+        self.0.get_bits(8..=15).try_into().unwrap()
+    }
+
+    pub fn y_poll_time(&self) -> u8 {
+        self.0.get_bits(16..=25).try_into().unwrap()
+    }
+
+    pub fn with_chan_0_copy_mode(&mut self, copy: CopyMode) -> &mut Self {
+        self.0.set_bit(0, copy.into());
+        self
+    }
+
+    pub fn with_chan_1_copy_mode(&mut self, copy: CopyMode) -> &mut Self {
+        self.0.set_bit(1, copy.into());
+        self
+    }
+
+    pub fn with_chan_2_copy_mode(&mut self, copy: CopyMode) -> &mut Self {
+        self.0.set_bit(2, copy.into());
+        self
+    }
+
+    pub fn with_chan_3_copy_mode(&mut self, copy: CopyMode) -> &mut Self {
+        self.0.set_bit(3, copy.into());
+        self
+    }
+
+    pub fn with_chan_0_enable(&mut self, enable: Enabled) -> &mut Self {
+        self.0.set_bit(4, enable.into());
+        self
+    }
+
+    pub fn with_chan_1_enable(&mut self, enable: Enabled) -> &mut Self {
+        self.0.set_bit(5, enable.into());
+        self
+    }
+
+    pub fn with_chan_2_enable(&mut self, enable: Enabled) -> &mut Self {
+        self.0.set_bit(6, enable.into());
+        self
+    }
+
+    pub fn with_chan_3_enable(&mut self, enable: Enabled) -> &mut Self {
+        self.0.set_bit(7, enable.into());
+        self
+    }
+
+    pub fn with_x_poll_time(&mut self, poll_time: u8) -> &mut Self {
+        debug_assert!(poll_time < 2 ^ 8, "poll time must be less then 256");
+        self.0.set_bits(8..=15, poll_time.into());
+        self
+    }
+
+    pub fn with_y_poll_time(&mut self, poll_time: u8) -> &mut Self {
+        debug_assert!(poll_time < 2 ^ 8, "poll time must be less then 256");
+        self.0.set_bits(16..=25, poll_time.into());
+        self
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum CopyMode {
+    VBlank,
+    Write,
+}
+
+impl From<bool> for CopyMode {
+    fn from(value: bool) -> Self {
+        if value {
+            Self::VBlank
+        } else {
+            Self::Write
+        }
+    }
+}
+
+impl From<CopyMode> for bool {
+    fn from(value: CopyMode) -> Self {
+        match value {
+            CopyMode::VBlank => true,
+            CopyMode::Write => false,
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct SiComm(u32);
