@@ -1,10 +1,10 @@
 #![no_std]
 #![no_main]
-#![feature(asm_experimental_arch, alloc_error_handler)]
+#![feature(asm_experimental_arch, alloc_error_handler, strict_provenance)]
 
 extern crate alloc;
 
-use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
+use core::{alloc::Layout, fmt::Write, panic::PanicInfo, ptr::from_exposed_addr};
 
 use rosalina::{
     clock::Instant,
@@ -37,6 +37,7 @@ extern "C" fn main() -> ! {
     let mut vi = VideoSystem::new(ViFramebuffer::new(640, 480));
     let write_ptr = vi.framebuffer.data.as_mut_ptr().cast::<u16>();
     let _sram = ExternalInterface::get_sram();
+    //for _n in 0..60 {
     loop {
         let time = Instant::now().ticks;
 
@@ -60,6 +61,7 @@ extern "C" fn main() -> ! {
 
         vi.wait_for_retrace();
     }
+    //unsafe { abort() }
 }
 
 #[panic_handler]
@@ -80,6 +82,26 @@ fn alloc_handler(layout: Layout) -> ! {
             layout.align()
         )
         .ok();
+    }
+    panic!()
+}
+
+/// # Safety
+///
+/// Must be called when you use the homebrew loader and its must be setup tro have a stubb
+pub unsafe extern "C" fn abort() -> ! {
+    let str = core::str::from_utf8(core::slice::from_raw_parts(
+        from_exposed_addr(0x8000_1804),
+        8,
+    ))
+    .unwrap();
+
+    if str == "STUBHAXX" {
+        write!(DOLPHIN_HLE, "Found stub {str}").ok();
+        let func = unsafe {
+            core::mem::transmute::<*const (), extern "C" fn() -> !>(from_exposed_addr(0x80001800))
+        };
+        func()
     }
     panic!()
 }
