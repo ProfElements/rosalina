@@ -429,3 +429,97 @@ impl From<CopyMode> for bool {
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[repr(transparent)]
 pub struct SiComm(u32);
+
+pub const SI_COMM: VolAddress<SiComm, Safe, Safe> = unsafe { VolAddress::new(BASE + 0x34) };
+
+impl From<u32> for SiComm {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<SiComm> for u32 {
+    fn from(value: SiComm) -> Self {
+        value.0
+    }
+}
+
+impl SiComm {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read() -> Self {
+        SI_COMM.read()
+    }
+
+    pub fn write(self) {
+        SI_COMM.write(self);
+    }
+
+    pub fn command_state(&self) -> CommandState {
+        self.0.get_bit(0).into()
+    }
+
+    pub fn si_channel(&self) -> SiChannel {
+        self.0.get_bits(1..=2).try_into().unwrap()
+    }
+}
+
+pub enum CommandState {
+    Complete,
+    Pending,
+}
+
+impl From<bool> for CommandState {
+    fn from(value: bool) -> Self {
+        if value {
+            Self::Pending
+        } else {
+            Self::Complete
+        }
+    }
+}
+
+impl From<CommandState> for bool {
+    fn from(value: CommandState) -> Self {
+        match value {
+            CommandState::Pending => true,
+            CommandState::Complete => false,
+        }
+    }
+}
+
+pub enum SiChannel {
+    Zero,
+    One,
+    Two,
+    Three,
+}
+
+#[derive(Debug)]
+pub struct InvalidSiChannelError;
+
+impl TryFrom<u32> for SiChannel {
+    type Error = InvalidSiChannelError;
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        match value {
+            0b00 => Ok(Self::Zero),
+            0b01 => Ok(Self::One),
+            0b10 => Ok(Self::Two),
+            0b11 => Ok(Self::Three),
+            _ => Err(InvalidSiChannelError),
+        }
+    }
+}
+
+impl From<SiChannel> for u32 {
+    fn from(value: SiChannel) -> Self {
+        match value {
+            SiChannel::Zero => 0b00,
+            SiChannel::One => 0b01,
+            SiChannel::Two => 0b10,
+            SiChannel::Three => 0b11,
+        }
+    }
+}
