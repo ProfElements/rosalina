@@ -464,6 +464,38 @@ impl SiComm {
     pub fn si_channel(&self) -> SiChannel {
         self.0.get_bits(1..=2).try_into().unwrap()
     }
+
+    pub fn callback_enabled(&self) -> Enabled {
+        self.0.get_bit(6).into()
+    }
+
+    pub fn command_enabled(&self) -> Enabled {
+        self.0.get_bit(7).into()
+    }
+
+    pub fn input_length(&self) -> u16 {
+        if self.0.get_bits(8..=14) == 0 {
+            128
+        } else {
+            self.0.get_bits(8..=14).try_into().unwrap()
+        }
+    }
+
+    pub fn output_length(&self) -> u16 {
+        if self.0.get_bits(16..=22) == 0 {
+            128
+        } else {
+            self.0.get_bits(16..=22).try_into().unwrap()
+        }
+    }
+
+    pub fn channel_enabled(&self) -> Enabled {
+        self.0.get_bit(24).into()
+    }
+
+    pub fn channel_number(&self) -> u8 {
+        self.0.get_bits(25..=26).try_into().unwrap()
+    }
 }
 
 pub enum CommandState {
