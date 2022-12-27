@@ -1,7 +1,11 @@
 use bit_field::BitField;
 use voladdress::{Safe, VolAddress};
 
-use super::vi::Enabled;
+use super::{
+    exi::DmaStart,
+    pi::{InterruptState, Mask},
+    vi::Enabled,
+};
 
 pub const BASE: usize = 0xCD006400;
 
@@ -461,16 +465,36 @@ impl SiComm {
         self.0.get_bit(0).into()
     }
 
+    pub fn with_dma_start(&mut self, start: DmaStart) -> &mut Self {
+        self.0.set_bit(0, start.into());
+        self
+    }
+
     pub fn si_channel(&self) -> SiChannel {
         self.0.get_bits(1..=2).try_into().unwrap()
+    }
+
+    pub fn with_si_channel(&mut self, channel: SiChannel) -> &mut Self {
+        self.0.set_bits(1..=2, channel.into());
+        self
     }
 
     pub fn callback_enabled(&self) -> Enabled {
         self.0.get_bit(6).into()
     }
 
+    pub fn with_callback_enabled(&mut self, enable: Enabled) -> &mut Self {
+        self.0.set_bit(6, enable.into());
+        self
+    }
+
     pub fn command_enabled(&self) -> Enabled {
         self.0.get_bit(7).into()
+    }
+
+    pub fn with_command_enabled(&mut self, enable: Enabled) -> &mut Self {
+        self.0.set_bit(7, enable.into());
+        self
     }
 
     pub fn input_length(&self) -> u16 {
@@ -481,6 +505,17 @@ impl SiComm {
         }
     }
 
+    pub fn with_input_length(&mut self, len: u16) -> &mut Self {
+        debug_assert!(len > 0 && len < 128, "Len must be 1-128");
+
+        if len == 128 {
+            self.0.set_bits(8..=14, 0);
+        } else {
+            self.0.set_bits(8..=14, len.into());
+        }
+        self
+    }
+
     pub fn output_length(&self) -> u16 {
         if self.0.get_bits(16..=22) == 0 {
             128
@@ -489,12 +524,79 @@ impl SiComm {
         }
     }
 
+    pub fn with_output_length(&mut self, len: u16) -> &mut Self {
+        debug_assert!(len > 0 && len < 129, "Len must be 1-128");
+
+        if len == 128 {
+            self.0.set_bits(16..=22, 0);
+        } else {
+            self.0.set_bits(16..=22, len.into());
+        }
+        self
+    }
+
     pub fn channel_enabled(&self) -> Enabled {
         self.0.get_bit(24).into()
     }
 
+    pub fn with_channel_enabled(&mut self, enable: Enabled) -> &mut Self {
+        self.0.set_bit(24, enable.into());
+        self
+    }
+
     pub fn channel_number(&self) -> u8 {
         self.0.get_bits(25..=26).try_into().unwrap()
+    }
+
+    pub fn with_channel_number(&mut self, number: u8) -> &mut Self {
+        debug_assert!(number > 0 && number < 5, " Number must be 1-4");
+        self.0.set_bits(25..=26, number.into());
+        self
+    }
+
+    pub fn read_status_interrupt_mask(&self) -> Mask {
+        self.0.get_bit(27).into()
+    }
+
+    pub fn with_read_status_interrupt_mask(&mut self, mask: Mask) -> &mut Self {
+        self.0.set_bit(28, mask.into());
+        self
+    }
+
+    pub fn read_status_interrupt_status(&self) -> InterruptState {
+        self.0.get_bit(28).into()
+    }
+
+    pub fn with_read_status_interrupt_status(&mut self, state: InterruptState) -> &mut Self {
+        self.0.set_bit(28, state.into());
+        self
+    }
+
+    pub fn communication_error(&self) -> Error {
+        self.0.get_bit(29).into()
+    }
+
+    pub fn with_commmunication_error(&mut self, error: Error) -> &mut Self {
+        self.0.set_bit(29, error.into());
+        self
+    }
+
+    pub fn transfer_complete_interrupt_mask(&self) -> Mask {
+        self.0.get_bit(30).into()
+    }
+
+    pub fn with_transfer_complete_interrupt_mask(&mut self, mask: Mask) -> &mut Self {
+        self.0.set_bit(30, mask.into());
+        self
+    }
+
+    pub fn transfer_complete_interrupt_status(&self) -> InterruptState {
+        self.0.get_bit(31).into()
+    }
+
+    pub fn with_transfer_complete_interrupt_status(&mut self, state: InterruptState) -> &mut Self {
+        self.0.set_bit(31, state.into());
+        self
     }
 }
 
@@ -555,3 +657,31 @@ impl From<SiChannel> for u32 {
         }
     }
 }
+
+pub enum Error {
+    Ok,
+    Error,
+}
+
+impl From<bool> for Error {
+    fn from(value: bool) -> Self {
+        if value {
+            Self::Error
+        } else {
+            Self::Ok
+        }
+    }
+}
+
+impl From<Error> for bool {
+    fn from(value: Error) -> Self {
+        match value {
+            Error::Error => true,
+            Error::Ok => false,
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct SiStatus(u32);
