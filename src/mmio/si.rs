@@ -685,3 +685,147 @@ impl From<Error> for bool {
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[repr(transparent)]
 pub struct SiStatus(u32);
+
+pub const SI_STATUS: VolAddress<SiStatus, Safe, Safe> = unsafe { VolAddress::new(BASE + 0x38) };
+
+impl From<u32> for SiStatus {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<SiStatus> for u32 {
+    fn from(value: SiStatus) -> Self {
+        value.0
+    }
+}
+
+impl SiStatus {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn channel_3_underrun(&self) -> ErrorStatus {
+        self.0.get_bit(0).into()
+    }
+
+    pub fn channel_3_overrun(&self) -> ErrorStatus {
+        self.0.get_bit(1).into()
+    }
+
+    pub fn channel_3_collision(&self) -> ErrorStatus {
+        self.0.get_bit(2).into()
+    }
+
+    pub fn channel_3_no_response(&self) -> ErrorStatus {
+        self.0.get_bit(3).into()
+    }
+
+    pub fn channel_3_write_status(&self) -> BufStatus {
+        self.0.get_bit(4).into()
+    }
+
+    pub fn channel_3_read_status(&self) -> BufStatus {
+        self.0.get_bit(5).into()
+    }
+
+    pub fn channel_2_underrun(&self) -> ErrorStatus {
+        self.0.get_bit(8).into()
+    }
+
+    pub fn channel_2_overrun(&self) -> ErrorStatus {
+        self.0.get_bit(9).into()
+    }
+
+    pub fn channel_2_collision(&self) -> ErrorStatus {
+        self.0.get_bit(10).into()
+    }
+
+    pub fn channel_2_no_response(&self) -> ErrorStatus {
+        self.0.get_bit(11).into()
+    }
+
+    pub fn channel_2_write_status(&self) -> BufStatus {
+        self.0.get_bit(12).into()
+    }
+
+    pub fn channel_2_read_status(&self) -> BufStatus {
+        self.0.get_bit(13).into()
+    }
+
+    pub fn channel_1_underrun(&self) -> ErrorStatus {
+        self.0.get_bit(16).into()
+    }
+
+    pub fn channel_1_overrun(&self) -> ErrorStatus {
+        self.0.get_bit(17).into()
+    }
+
+    pub fn channel_1_collision(&self) -> ErrorStatus {
+        self.0.get_bit(18).into()
+    }
+
+    pub fn channel_1_no_response(&self) -> ErrorStatus {
+        self.0.get_bit(19).into()
+    }
+
+    pub fn channel_1_write_status(&self) -> BufStatus {
+        self.0.get_bit(20).into()
+    }
+
+    pub fn channel_1_read_status(&self) -> BufStatus {
+        self.0.get_bit(21).into()
+    }
+
+    pub fn channel_0_underrun(&self) -> ErrorStatus {
+        self.0.get_bit(24).into()
+    }
+
+    pub fn channel_0_overrun(&self) -> ErrorStatus {
+        self.0.get_bit(25).into()
+    }
+
+    pub fn channel_0_collision(&self) -> ErrorStatus {
+        self.0.get_bit(26).into()
+    }
+
+    pub fn channel_0_no_response(&self) -> ErrorStatus {
+        self.0.get_bit(27).into()
+    }
+
+    pub fn channel_0_write_status(&self) -> BufStatus {
+        self.0.get_bit(28).into()
+    }
+
+    pub fn channel_0_read_status(&self) -> BufStatus {
+        self.0.get_bit(29).into()
+    }
+
+    pub fn all_channel_write_status(&self) -> BufStatus {
+        self.0.get_bit(31).into()
+    }
+}
+
+pub enum BufStatus {
+    Copied,
+    Idle,
+}
+
+impl From<bool> for BufStatus {
+    fn from(value: bool) -> Self {
+        if value {
+            Self::Copied
+        } else {
+            Self::Idle
+        }
+    }
+}
+
+impl From<BufStatus> for bool {
+    fn from(value: BufStatus) -> Self {
+        match value {
+            BufStatus::Copied => true,
+            BufStatus::Idle => false,
+        }
+    }
+}
