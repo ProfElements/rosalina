@@ -3,8 +3,6 @@ use core::{arch::asm, fmt::Write};
 
 use alloc::boxed::Box;
 use spin::RwLock;
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 
 use crate::cache::{dc_flush_range_no_sync, ic_invalidate_range};
 use crate::interrupts::interrupt_handler;
@@ -79,7 +77,7 @@ impl ExceptionFrame {
     }
 }
 
-#[derive(EnumIter, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Exception {
     SystemReset,
@@ -207,7 +205,8 @@ impl Exception {
     }
 
     pub fn init() {
-        for exception in Self::iter() {
+        for n in 0..Self::COUNT {
+            let exception = Self::from_id(n).unwrap();
             if exception == Self::SystemCall {
                 unsafe {
                     Self::load_exception_handler(

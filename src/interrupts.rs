@@ -1,8 +1,6 @@
 use alloc::boxed::Box;
 use core::fmt::{Display, Write};
 use spin::RwLock;
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 
 use crate::{
     arch::MachineStateRegister,
@@ -35,7 +33,7 @@ impl InterruptHandler {
     }
 }
 
-#[derive(EnumIter, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Interrupt {
     Error,
@@ -121,6 +119,27 @@ impl Interrupt {
             Self::InterprocessControl => 14,
         }
     }
+
+    pub const fn from_id(id: usize) -> Option<Self> {
+        match id {
+            0 => Some(Self::Error),
+            1 => Some(Self::ResetSwitch),
+            2 => Some(Self::DvdInterface),
+            3 => Some(Self::SerialInterface),
+            4 => Some(Self::ExternalInterface),
+            5 => Some(Self::AudioInterface),
+            6 => Some(Self::DSP),
+            7 => Some(Self::MemoryInterface),
+            8 => Some(Self::VideoInterface),
+            9 => Some(Self::PixelEngineToken),
+            10 => Some(Self::PixelEngineFinish),
+            11 => Some(Self::CommandProcessor),
+            12 => Some(Self::Debugger),
+            13 => Some(Self::HighSpeedPort),
+            14 => Some(Self::InterprocessControl),
+            _ => None,
+        }
+    }
 }
 
 pub fn disable() {
@@ -142,7 +161,8 @@ pub fn enable() {
 pub fn interrupt_handler(_addr: usize, _frame: &ExceptionFrame) -> Result<(), &'static str> {
     let cause: InterruptCause = InterruptCause::read();
     let mask: InterruptMask = InterruptMask::read();
-    for (idx, interrupt) in Interrupt::iter().enumerate() {
+    for n in 0..Interrupt::COUNT {
+        let interrupt = Interrupt::from_id(n).unwrap();
         let is_enabled: bool = match interrupt {
             Interrupt::Error => cause.gp_runtime_error().into() && mask.gp_runtime_error().into(),
             Interrupt::ResetSwitch => cause.reset_switch().into() && mask.reset_switch().into(),
@@ -182,11 +202,11 @@ pub fn interrupt_handler(_addr: usize, _frame: &ExceptionFrame) -> Result<(), &'
         };
 
         if is_enabled {
-            let res = INTERRUPT_TABLE[idx]
+            let res = INTERRUPT_TABLE[n]
                 .f
                 .read()
                 .as_ref()
-                .map_or(Ok(()), |f| f(idx));
+                .map_or(Ok(()), |f| f(n));
 
             res?;
         }
