@@ -1,5 +1,5 @@
 use bit_field::BitField;
-use voladdress::{Safe, VolAddress};
+use voladdress::{Safe, VolAddress, VolBlock};
 
 use super::{
     exi::DmaStart,
@@ -709,100 +709,221 @@ impl SiStatus {
         self.0.get_bit(0).into()
     }
 
+    pub fn with_chan_3_underrun(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(0, status.into());
+        self
+    }
+
     pub fn channel_3_overrun(&self) -> ErrorStatus {
         self.0.get_bit(1).into()
+    }
+
+    pub fn with_chan_3_overrun(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(1, status.into());
+        self
     }
 
     pub fn channel_3_collision(&self) -> ErrorStatus {
         self.0.get_bit(2).into()
     }
 
+    pub fn with_chan_3_collision(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(2, status.into());
+        self
+    }
+
     pub fn channel_3_no_response(&self) -> ErrorStatus {
         self.0.get_bit(3).into()
+    }
+
+    pub fn with_chan_3_no_respone(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(3, status.into());
+        self
     }
 
     pub fn channel_3_write_status(&self) -> BufStatus {
         self.0.get_bit(4).into()
     }
 
+    pub fn with_chan_3_write_status(&mut self, status: BufStatus) -> &mut Self {
+        self.0.set_bit(4, status.into());
+        self
+    }
+
     pub fn channel_3_read_status(&self) -> BufStatus {
         self.0.get_bit(5).into()
+    }
+
+    pub fn with_chan_3_read_status(&mut self, status: BufStatus) -> &mut Self {
+        self.0.set_bit(5, status.into());
+        self
     }
 
     pub fn channel_2_underrun(&self) -> ErrorStatus {
         self.0.get_bit(8).into()
     }
 
+    pub fn with_chan_2_underrun(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(8, status.into());
+        self
+    }
+
     pub fn channel_2_overrun(&self) -> ErrorStatus {
         self.0.get_bit(9).into()
+    }
+
+    pub fn with_chan_2_overrun(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(9, status.into());
+        self
     }
 
     pub fn channel_2_collision(&self) -> ErrorStatus {
         self.0.get_bit(10).into()
     }
 
+    pub fn with_chan_2_collision(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(10, status.into());
+        self
+    }
+
     pub fn channel_2_no_response(&self) -> ErrorStatus {
         self.0.get_bit(11).into()
+    }
+
+    pub fn with_chan_2_no_response(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(11, status.into());
+        self
     }
 
     pub fn channel_2_write_status(&self) -> BufStatus {
         self.0.get_bit(12).into()
     }
 
+    pub fn with_chan_2_write_status(&mut self, status: BufStatus) -> &mut Self {
+        self.0.set_bit(12, status.into());
+        self
+    }
+
     pub fn channel_2_read_status(&self) -> BufStatus {
         self.0.get_bit(13).into()
+    }
+
+    pub fn with_chan_2_read_status(&mut self, status: BufStatus) -> &mut Self {
+        self.0.set_bit(13, status.into());
+        self
     }
 
     pub fn channel_1_underrun(&self) -> ErrorStatus {
         self.0.get_bit(16).into()
     }
 
+    pub fn with_chan_1_underrun(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(16, status.into());
+        self
+    }
+
     pub fn channel_1_overrun(&self) -> ErrorStatus {
         self.0.get_bit(17).into()
+    }
+
+    pub fn with_chan_1_overrun(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(17, status.into());
+        self
     }
 
     pub fn channel_1_collision(&self) -> ErrorStatus {
         self.0.get_bit(18).into()
     }
 
+    pub fn with_chan_1_collision(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(18, status.into());
+        self
+    }
+
     pub fn channel_1_no_response(&self) -> ErrorStatus {
         self.0.get_bit(19).into()
+    }
+
+    pub fn with_chan_1_no_response(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(19, status.into());
+        self
     }
 
     pub fn channel_1_write_status(&self) -> BufStatus {
         self.0.get_bit(20).into()
     }
 
+    pub fn with_chan_1_write_status(&mut self, status: BufStatus) -> &mut Self {
+        self.0.set_bit(20, status.into());
+        self
+    }
+
     pub fn channel_1_read_status(&self) -> BufStatus {
         self.0.get_bit(21).into()
+    }
+
+    pub fn with_chan_1_read_status(&mut self, status: BufStatus) -> &mut Self {
+        self.0.set_bit(21, status.into());
+        self
     }
 
     pub fn channel_0_underrun(&self) -> ErrorStatus {
         self.0.get_bit(24).into()
     }
 
+    pub fn with_chan_0_underrun(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(24, status.into());
+        self
+    }
     pub fn channel_0_overrun(&self) -> ErrorStatus {
         self.0.get_bit(25).into()
     }
 
+    pub fn with_chan_0_overrun(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(25, status.into());
+        self
+    }
     pub fn channel_0_collision(&self) -> ErrorStatus {
         self.0.get_bit(26).into()
     }
 
+    pub fn with_chan_0_collision(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(26, status.into());
+        self
+    }
     pub fn channel_0_no_response(&self) -> ErrorStatus {
         self.0.get_bit(27).into()
     }
 
+    pub fn with_chan_0_no_response(&mut self, status: ErrorStatus) -> &mut Self {
+        self.0.set_bit(27, status.into());
+        self
+    }
     pub fn channel_0_write_status(&self) -> BufStatus {
         self.0.get_bit(28).into()
+    }
+
+    pub fn with_chan_0_write_status(&mut self, status: BufStatus) -> &mut Self {
+        self.0.set_bit(28, status.into());
+        self
     }
 
     pub fn channel_0_read_status(&self) -> BufStatus {
         self.0.get_bit(29).into()
     }
 
+    pub fn with_chan_0_read_status(&mut self, status: BufStatus) -> &mut Self {
+        self.0.set_bit(29, status.into());
+        self
+    }
+
     pub fn all_channel_write_status(&self) -> BufStatus {
         self.0.get_bit(31).into()
+    }
+
+    pub fn with_all_chan_write_status(&mut self, status: BufStatus) -> &mut Self {
+        self.0.set_bit(31, status.into());
+        self
     }
 }
 
@@ -829,3 +950,46 @@ impl From<BufStatus> for bool {
         }
     }
 }
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
+pub struct ExiLock(u32);
+
+pub const EXI_LOCK: VolAddress<ExiLock, Safe, Safe> = unsafe { VolAddress::new(BASE + 0x3C) };
+
+impl From<u32> for ExiLock {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<ExiLock> for u32 {
+    fn from(value: ExiLock) -> Self {
+        value.0
+    }
+}
+
+impl ExiLock {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn read() -> Self {
+        EXI_LOCK.read()
+    }
+
+    pub fn write(self) {
+        EXI_LOCK.write(self);
+    }
+
+    pub fn exi_32hertz_enabled(&self) -> Enabled {
+        self.0.get_bit(31).into()
+    }
+
+    pub fn with_exi_32hertz_enabled(&mut self, enable: Enabled) -> &mut Self {
+        self.0.set_bit(31, enable.into());
+        self
+    }
+}
+
+pub const SI_BUF: VolBlock<u32, Safe, Safe, 32> = unsafe { VolBlock::new(BASE + 0x80) };
