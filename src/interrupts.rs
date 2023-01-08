@@ -93,6 +93,7 @@ impl Interrupt {
     ///
     /// This errors based on user provided function.
     pub fn invoke_interrupt_handler(interrupt: Self) -> Result<(), &'static str> {
+        //unsafe { write!(DOLPHIN_HLE, "{interrupt} interrupt has happened").unwrap() }
         INTERRUPT_TABLE[interrupt.id()]
             .f
             .read()
@@ -161,7 +162,7 @@ pub fn enable() {
 pub fn interrupt_handler(_addr: usize, _frame: &ExceptionFrame) -> Result<(), &'static str> {
     let cause: InterruptCause = InterruptCause::read();
     let mask: InterruptMask = InterruptMask::read();
-    for (n, func) in INTERRUPT_TABLE.iter().enumerate().take(Interrupt::COUNT) {
+    for n in 0..Interrupt::COUNT {
         let interrupt = Interrupt::from_id(n).unwrap();
         let is_enabled: bool = match interrupt {
             Interrupt::Error => cause.gp_runtime_error().into() && mask.gp_runtime_error().into(),
@@ -202,7 +203,7 @@ pub fn interrupt_handler(_addr: usize, _frame: &ExceptionFrame) -> Result<(), &'
         };
 
         if is_enabled {
-            let res = func.f.read().as_ref().map_or(Ok(()), |f| f(n));
+            let res = Interrupt::invoke_interrupt_handler(Interrupt::from_id(n).unwrap());
 
             res?;
         }
