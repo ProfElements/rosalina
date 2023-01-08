@@ -5,7 +5,7 @@ use alloc::boxed::Box;
 use spin::RwLock;
 
 use crate::cache::{dc_flush_range_no_sync, ic_invalidate_range};
-use crate::interrupts::interrupt_handler;
+use crate::interrupts::{self, interrupt_handler};
 
 use crate::os::LinkerSymbol;
 use crate::DOLPHIN_HLE;
@@ -47,13 +47,6 @@ pub struct ExceptionFrame {
     xer: u32,
     msr: u32,
     dar: u32,
-
-    state: u16,
-
-    gqrs: [u32; 8],
-    fprs: [f64; 32],
-    psfprs: [f64; 32],
-    fpscr: u64,
 }
 
 impl ExceptionFrame {
@@ -62,17 +55,12 @@ impl ExceptionFrame {
             srr0: 0,
             srr1: 0,
             gprs: [0; 32],
-            gqrs: [0; 8],
             cr: 0,
             lr: 0,
             ctr: 0,
             xer: 0,
             msr: 0,
             dar: 0,
-            state: 0,
-            fprs: [0.0; 32],
-            psfprs: [0.0; 32],
-            fpscr: 0,
         }
     }
 }
@@ -216,15 +204,6 @@ impl Exception {
                     );
                 }
                 continue;
-            }
-            if exception == Self::Decrementer || exception == Self::Interrupt {
-                unsafe {
-                    Self::load_exception_handler(
-                        exception,
-                        RECOVERABLE_HANDLER_START.as_ptr(),
-                        RECOVERABLE_HANDLER_END.as_usize() - RECOVERABLE_HANDLER_START.as_usize(),
-                    );
-                }
             }
 
             unsafe {
@@ -404,8 +383,6 @@ extern "C" {
     static SYSTEMCALL_HANDLER_END: LinkerSymbol;
     static EXCEPTION_HANDLER_START: LinkerSymbol;
     static EXCEPTION_HANDLER_END: LinkerSymbol;
-    static RECOVERABLE_HANDLER_START: LinkerSymbol;
-    static RECOVERABLE_HANDLER_END: LinkerSymbol;
 }
 
 #[naked]
@@ -437,269 +414,289 @@ pub extern "C" fn systemcall_handler() {
     }
 }
 
-static mut CONTEXT: ExceptionFrame = ExceptionFrame::new();
-
-#[naked]
-#[allow(named_asm_labels)]
-pub extern "C" fn exception_handler() {
-    unsafe {
-        core::arch::asm!(
-            ".global EXCEPTION_HANDLER_START",
-            "EXCEPTION_HANDLER_START:",
-            "mtspr {SPRG3},4",
-            "lis 4,{CONTEXT}@h",
-            "ori 4,4,{CONTEXT}@l",
-            "clrlwi 4,4,2",
-            //STORE CONTEXT
-            "stw 0,0(4)",
-            "stw 1,4(4)",
-            "stw 2,8(4)",
-            "stw 3,12(4)",
-            "mfspr 3,{SPRG3}",
-            "stw 3,16(4)",
-            "stw 5,20(4)",
-            "mfsrr0 3",
-            "stw 3,128(4)",
-            "mfsrr1 3",
-            "stw 3,132(4)",
-            "mfcr 3",
-            "stw 3,136(4)",
-            "mflr 3",
-            "stw 3,140(4)",
-            "mfctr 3",
-            "stw 3,144(4)",
-            "mfxer 3",
-            "stw 3,148(4)",
-            "mfmsr 3",
-            "stw 3,152(4)",
-            "mfdar 3",
-            "stw 3,156(4)",
-            //END STORE CONTEXT
-            "lis 3,default@h",
-            "ori 3,3,default@l",
-            "mtsrr0 3",
-            "mfmsr 3",
-            "ori 3,3,{MSR_DR}|{MSR_IR}|{MSR_FP}",
-            "mtsrr1 3",
-            "bl 1f",
-            "1:",
-            "mflr 3",
-            "subi 3,3,0x88",
-            "rfi",
-            ".global EXCEPTION_HANDLER_END",
-            "EXCEPTION_HANDLER_END:",
-            "nop",
-            "default:",
-            "lis 4,{CONTEXT}@h",
-            "ori 4,4,{CONTEXT}@l",
-            "stw 6,24(4)",
-            "stw 7,28(4)",
-            "stw 8,32(4)",
-            "stw 9,36(4)",
-            "stw 10,40(4)",
-            "stw 11,44(4)",
-            "stw 12,48(4)",
-            "stw 13,52(4)",
-            "stw 14,56(4)",
-            "stw 15,60(4)",
-            "stw 16,64(4)",
-            "stw 17,68(4)",
-            "stw 18,72(4)",
-            "stw 19,76(4)",
-            "stw 20,80(4)",
-            "stw 21,84(4)",
-            "stw 22,88(4)",
-            "stw 23,92(4)",
-            "stw 24,96(4)",
-            "stw 25,100(4)",
-            "stw 26,104(4)",
-            "stw 27,108(4)",
-            "stw 28,112(4)",
-            "stw 29,116(4)",
-            "stw 30,120(4)",
-            "stw 31,124(4)",
-            "bl {default_exception}",
-            "lis 4,{CONTEXT}@h",
-            "ori 4,4,{CONTEXT}@l",
-            "lwz 3,136(4)",
-            "mtcr 3",
-            "lwz 3,140(4)",
-            "mtlr 3",
-            "lwz 3,144(4)",
-            "mtctr 3",
-            "lwz 3,148(4)",
-            "mtxer 3",
-            "lwz 6,24(4)",
-            "lwz 7,28(4)",
-            "lwz 8,32(4)",
-            "lwz 9,36(4)",
-            "lwz 10,40(4)",
-            "lwz 11,44(4)",
-            "lwz 12,48(4)",
-            "lwz 13,52(4)",
-            "lwz 14,56(4)",
-            "lwz 15,60(4)",
-            "lwz 16,64(4)",
-            "lwz 0,0(4)",
-            "lwz 2,8(4)",
-            "lwz 3,128(4)",
-            "mtsrr0 3",
-            "lwz 3,132(4)",
-            "mtsrr1 3",
-            "lwz 3,12(4)",
-            "mfspr 4,{SPRG3}",
-            "rfi",
-            SPRG3 = const 275,
-            MSR_DR = const 0x10,
-            MSR_IR = const 0x20,
-            MSR_FP = const 0x2000,
-            default_exception = sym default_exception,
-            CONTEXT = sym CONTEXT,
-            options(noreturn)
-        )
-    }
-}
-
-#[naked]
-#[allow(named_asm_labels)]
-pub extern "C" fn recoverable_exception_handler() {
-    unsafe {
-        core::arch::asm!(
-            ".global RECOVERABLE_HANDER_START",
-            "RECOVERABLE_HANDLER_START:",
-            "mtspr {SPRG3},4",
-            "lis 4,{CONTEXT}@h",
-            "ori 4,4,{CONTEXT}@l",
-            "clrlwi 4,4,2",
-            //STORE CONTEXT
-            "stw 0,0(4)",
-            "stw 1,4(4)",
-            "stw 2,8(4)",
-            "stw 3,12(4)",
-            "mfspr 3,{SPRG3}",
-            "stw 3,16(4)",
-            "stw 5,20(4)",
-            "mfsrr0 3",
-            "stw 3,128(4)",
-            "mfsrr1 3",
-            "stw 3,132(4)",
-            "mfcr 3",
-            "stw 3,136(4)",
-            "mflr 3",
-            "stw 3,140(4)",
-            "mfctr 3",
-            "stw 3,144(4)",
-            "mfxer 3",
-            "stw 3,148(4)",
-            "mfmsr 3",
-            "stw 3,152(4)",
-            "mfdar 3",
-            "stw 3,156(4)",
-            //END STORE CONTEXT
-            "lis 3,default_recoverable@h",
-            "ori 3,3,default_recoverable@l",
-            "mtsrr0 3",
-            "mfmsr 3",
-            "ori 3,3,{MSR_DR}|{MSR_IR}|{MSR_FP}",
-            "mtsrr1 3",
-            "bl 1f",
-            "1:",
-            "mflr 3",
-            "subi 3,3,0x88",
-            "rfi",
-            ".global RECOVERABLE_HANDLER_END",
-            "RECOVERABLE_HANDLER_END:",
-            "nop",
-            "default_recoverable:",
-            "lis 4,{CONTEXT}@h",
-            "ori 4,4,{CONTEXT}@l",
-            "stw 6,24(4)",
-            "stw 7,28(4)",
-            "stw 8,32(4)",
-            "stw 9,36(4)",
-            "stw 10,40(4)",
-            "stw 11,44(4)",
-            "stw 12,48(4)",
-            "stw 13,52(4)",
-            "stw 14,56(4)",
-            "stw 15,60(4)",
-            "stw 16,64(4)",
-            "stw 17,68(4)",
-            "stw 18,72(4)",
-            "stw 19,76(4)",
-            "stw 20,80(4)",
-            "stw 21,84(4)",
-            "stw 22,88(4)",
-            "stw 23,92(4)",
-            "stw 24,96(4)",
-            "stw 25,100(4)",
-            "stw 26,104(4)",
-            "stw 27,108(4)",
-            "stw 28,112(4)",
-            "stw 29,116(4)",
-            "stw 30,120(4)",
-            "stw 31,124(4)",
-            "mfmsr 5",
-            "ori 5,5,{MSR_RI}",
-            "mtmsr 5",
-            "isync",
-            "bl {default_exception}",
-            "lis 4,{CONTEXT}@h",
-            "ori 4,4,{CONTEXT}@l",
-            "lwz 3,136(4)",
-            "mtcr 3",
-            "lwz 3,140(4)",
-            "mtlr 3",
-            "lwz 3,144(4)",
-            "mtctr 3",
-            "lwz 3,148(4)",
-            "mtxer 3",
-            "lwz 6,24(4)",
-            "lwz 7,28(4)",
-            "lwz 8,32(4)",
-            "lwz 9,36(4)",
-            "lwz 10,40(4)",
-            "lwz 11,44(4)",
-            "lwz 12,48(4)",
-            "lwz 13,52(4)",
-            "lwz 14,56(4)",
-            "lwz 15,60(4)",
-            "lwz 16,64(4)",
-            "mfmsr 3",
-            "rlwinm 3,3,0,31,29",
-            "mtmsr 3",
-            "isync",
-            "lwz 0,0(4)",
-            "lwz 2,8(4)",
-            "lwz 3,128(4)",
-            "mtsrr0 3",
-            "lwz 3,132(4)",
-            "mtsrr1 3",
-            "lwz 3,12(4)",
-            "mfspr 4,{SPRG3}",
-            "rfi",
-            SPRG3 = const 275,
-            MSR_DR = const 0x10,
-            MSR_IR = const 0x20,
-            MSR_FP = const 0x2000,
-            MSR_RI = const 0x2,
-            default_exception = sym default_exception,
-            CONTEXT = sym CONTEXT,
-            options(noreturn)
-        )
-    }
-}
-/// # Safety
-///
-/// This function must be called with within the `exception_handler`
-pub unsafe extern "C" fn default_exception(addr: usize, frame: *const ExceptionFrame) {
-    if let Some(exception) = Exception::from_addr(0x8000_0000 + addr) {
-        Exception::invoke_exception_handler(exception, frame.as_ref().unwrap()).unwrap();
-    }
-
-    //loop {}
-}
-
 pub fn decrementer_set(ticks: usize) {
     unsafe { core::arch::asm!("mtdec {ticks}", ticks = in(reg) ticks,) }
+}
+
+#[repr(C)]
+pub struct Context {
+    gprs: GeneralPurposeRegisters,
+    sprs: SpecialPurposeRegisters,
+}
+
+impl Context {
+    pub const fn new() -> Self {
+        Self {
+            gprs: GeneralPurposeRegisters::new(),
+            sprs: SpecialPurposeRegisters::new(),
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct GeneralPurposeRegisters {
+    pub gpr0: usize,
+    pub gpr1: usize,
+    pub gpr2: usize,
+    pub gpr3: usize,
+    pub gpr4: usize,
+    pub gpr5: usize,
+    pub gpr6: usize,
+    pub gpr7: usize,
+    pub gpr8: usize,
+    pub gpr9: usize,
+    pub gpr10: usize,
+    pub gpr11: usize,
+    pub gpr12: usize,
+    pub gpr13: usize,
+    pub gpr14: usize,
+    pub gpr15: usize,
+    pub gpr16: usize,
+    pub gpr17: usize,
+    pub gpr18: usize,
+    pub gpr19: usize,
+    pub gpr20: usize,
+    pub gpr21: usize,
+    pub gpr22: usize,
+    pub gpr23: usize,
+    pub gpr24: usize,
+    pub gpr25: usize,
+    pub gpr26: usize,
+    pub gpr27: usize,
+    pub gpr28: usize,
+    pub gpr29: usize,
+    pub gpr30: usize,
+    pub gpr31: usize,
+}
+
+impl GeneralPurposeRegisters {
+    pub const fn new() -> Self {
+        Self {
+            gpr0: 0,
+            gpr1: 0,
+            gpr2: 0,
+            gpr3: 0,
+            gpr4: 0,
+            gpr5: 0,
+            gpr6: 0,
+            gpr7: 0,
+            gpr8: 0,
+            gpr9: 0,
+            gpr10: 0,
+            gpr11: 0,
+            gpr12: 0,
+            gpr13: 0,
+            gpr14: 0,
+            gpr15: 0,
+            gpr16: 0,
+            gpr17: 0,
+            gpr18: 0,
+            gpr19: 0,
+            gpr20: 0,
+            gpr21: 0,
+            gpr22: 0,
+            gpr23: 0,
+            gpr24: 0,
+            gpr25: 0,
+            gpr26: 0,
+            gpr27: 0,
+            gpr28: 0,
+            gpr29: 0,
+            gpr30: 0,
+            gpr31: 0,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct SpecialPurposeRegisters {
+    pub srr0: usize,
+    pub srr1: usize,
+    pub cr: usize,
+    pub lr: usize,
+    pub ctr: usize,
+    pub xer: usize,
+    pub msr: usize,
+    pub dar: usize,
+}
+
+impl SpecialPurposeRegisters {
+    pub const fn new() -> Self {
+        Self {
+            srr0: 0,
+            srr1: 0,
+            cr: 0,
+            lr: 0,
+            ctr: 0,
+            xer: 0,
+            msr: 0,
+            dar: 0,
+        }
+    }
+}
+
+static EXCEPTION_CONTEXT: Context = Context::new();
+
+/// # Safety
+///
+/// Must be called by an the calling of an exceptions
+/// **DO NOT CALL THIS DIRECTLY EVER**
+#[no_mangle]
+#[naked]
+#[allow(named_asm_labels)]
+pub unsafe extern "C" fn exception_handler_shim() -> ! {
+    core::arch::asm!(
+        ".global EXCEPTION_HANDLER_START",
+        "EXCEPTION_HANDLER_START:",
+        "mtsprg 3,4",
+        "lis 4,{CONTEXT}@h",
+        "ori 4,4,{CONTEXT}@l",
+        "clrlwi 4,4,2",
+        //Store general purpose usable
+        "stw 0,0(4)",
+        "stw 1,4(4)",
+        "stw 2,8(4)",
+        "stw 3,12(4)",
+        //Move sprg3 to 3 which has reg 4
+        "mfsprg 3,3",
+        "stw 3,16(4)",
+
+        "stw 5,20(4)",
+        // End store general purpose usable
+        // Start store special purpose
+        "mfsrr0 3",
+        "stw 3,128(4)",
+        "mfsrr1 3",
+        "stw 3,132(4)",
+        "mfcr 3",
+        "stw 3,136(4)",
+        "mflr 3",
+        "stw 3,140(4)",
+        "mfctr 3",
+        "stw 3,144(4)",
+        "mfxer 3",
+        "stw 3, 148(4)",
+        "mfmsr 3",
+        "stw 3, 152(4)",
+        "mfdar 3",
+        "stw 3,156(4)",
+        //End store store special purpose
+        "lis 3,{EXCEPTION_HANDLER}@h",
+        "ori 3,3,{EXCEPTION_HANDLER}@l",
+        "mtsrr0 3",
+        "mfmsr 3",
+        "ori 3,3,{FLAGS}",
+        "mtsrr1 3",
+        "bl 1f",
+        "1:",
+        "mflr 3",
+        "subi 3,3,0x88",
+        "rfi",
+        ".global EXCEPTION_HANDLER_END",
+        "EXCEPTION_HANDLER_END:",
+        "nop",
+        CONTEXT = sym EXCEPTION_CONTEXT,
+        EXCEPTION_HANDLER = sym de_exception_handler,
+        FLAGS = const handler_flags(),
+        options(noreturn)
+    )
+}
+
+const fn handler_flags() -> usize {
+    const MSR_DR: usize = 0x10;
+    const MSR_IR: usize = 0x20;
+    const MSR_FP: usize = 0x2000;
+    MSR_DR | MSR_IR | MSR_FP
+}
+
+/// # Safety
+///
+/// MUST BE CALLED FORM `exception_handler_shim`
+#[no_mangle]
+#[naked]
+pub unsafe extern "C" fn de_exception_handler() -> ! {
+    core::arch::asm!(
+        "lis 4,{CONTEXT}@h",
+        "ori 4,4,{CONTEXT}@l",
+        "stw 6,24(4)",
+        "stw 7,28(4)",
+        "stw 8,32(4)",
+        "stw 9,36(4)",
+        "stw 10,40(4)",
+        "stw 11,44(4)",
+        "stw 12,48(4)",
+        "stw 13,52(4)",
+        "stw 14,56(4)",
+        "stw 15,60(4)",
+        "stw 16,64(4)",
+        "stw 17,68(4)",
+        "stw 18,72(4)",
+        "stw 19,76(4)",
+        "stw 20,80(4)",
+        "stw 21,84(4)",
+        "stw 22,88(4)",
+        "stw 23,92(4)",
+        "stw 24,96(4)",
+        "stw 25,100(4)",
+        "stw 26,104(4)",
+        "stw 27,108(4)",
+        "stw 28,112(4)",
+        "stw 29,116(4)",
+        "stw 30,120(4)",
+        "stw 31,124(4)",
+        "isync",
+        "sync",
+        "bl {DEFAULT_EXCEPTION_HANDLER}",
+        "lis 4,{CONTEXT}@h",
+        "ori 4,4,{CONTEXT}@l",
+        "lwz 3,136(4)",
+        "mtcr 3",
+        "lwz 3,140(4)",
+        "mtlr 3",
+        "lwz 3,144(4)",
+        "mtctr 3",
+        "lwz 3,148(4)",
+        "mtxer 3",
+        "lwz 6,24(4)",
+        "lwz 7,28(4)",
+        "lwz 8,32(4)",
+        "lwz 9,36(4)",
+        "lwz 10,40(4)",
+        "lwz 11,44(4)",
+        "lwz 12,48(4)",
+        "lwz 13,52(4)",
+        "lwz 14,56(4)",
+        "lwz 15,60(4)",
+        "lwz 16,64(4)",
+        "lwz 0,0(4)",
+        "lwz 2,8(4)",
+        "lwz 3,128(4)",
+        "mtsrr0 3",
+        "lwz 3,132(4)",
+        "mtsrr1 3",
+        "lwz 3,12(4)",
+        "mfsprg 4,3",
+        "rfi",
+        DEFAULT_EXCEPTION_HANDLER = sym def_exception_handler,
+        CONTEXT = sym EXCEPTION_CONTEXT,
+        options(noreturn)
+    )
+}
+
+/// # Safety
+///
+/// Must be provided a valid `exception_addr`, and a valid and nonnull Context
+#[no_mangle]
+pub unsafe extern "C" fn def_exception_handler(exception_addr: usize, context: *const Context) {
+    interrupts::disable();
+    if let Some(exception) = Exception::from_addr(exception_addr + 0x8000_0000) {
+        Exception::invoke_exception_handler(
+            exception,
+            context.cast::<ExceptionFrame>().as_ref().unwrap(),
+        )
+        .unwrap();
+        return;
+    }
+    interrupts::enable();
+    core::hint::unreachable_unchecked();
 }
