@@ -15,6 +15,13 @@ pub struct Pad {
 }
 
 impl Pad {
+    /// # Errors
+    ///
+    /// This can produce 4 errors.
+    /// `NoResponse`: there is no available serial device on that channel
+    /// `Overrun`: you had a buffer overrun
+    /// `Underrun`: you had a buffer underrun
+    /// `Collision`: your values are getting modified while read hopefully this doesnt happen
     pub fn init(channel: SiChannel) -> Result<Self, TransferError> {
         let kind = SerialInterface::get_type(channel)?;
         match channel {
@@ -26,16 +33,8 @@ impl Pad {
         SiComm::read()
             .with_read_status_interrupt_mask(Mask::Enabled)
             .write();
-        Ok(Self { channel, kind })
+        Ok(Self { kind, channel })
     }
-
-    /// # Errors
-    ///
-    /// This can produce 4 errors.
-    /// `NoResponse`: there is no available serial device on that channel
-    /// `Overrun`: you had a buffer overrun
-    /// `Underrun`: you had a buffer underrun
-    /// `Collision`: your values are getting modified while read hopefully this doesnt happen
 
     pub fn read(&self) -> Status {
         if self.kind & 0x0800_0000 != 0 {

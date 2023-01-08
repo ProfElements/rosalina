@@ -14,7 +14,6 @@ use rosalina::{
     mmio::si::SiChannel,
     os::OS,
     pad::Pad,
-    si::SerialInterface,
     vi::{ViFramebuffer, VideoSystem},
     DOLPHIN_HLE,
 };
@@ -45,7 +44,9 @@ extern "C" fn main() -> ! {
     loop {
         let time = Instant::now().ticks;
         let status = pad.read();
-        unsafe { write!(DOLPHIN_HLE, "{status:?}").unwrap() }
+
+        unsafe { write!(DOLPHIN_HLE, "Status: {status:?}").unwrap() }
+
         for i in 0..(vi.framebuffer.width * vi.framebuffer.height) {
             unsafe {
                 write_ptr.offset(i.try_into().unwrap()).write(0xff80);
