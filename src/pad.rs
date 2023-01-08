@@ -6,15 +6,17 @@ use crate::{
         si::{SiChannel, SiComm, SiInputBufHi, SiInputBufLo, SiPoll},
         vi::Enabled,
     },
-    si::TransferError,
+    si::{SerialInterface, TransferError},
 };
 
 pub struct Pad {
+    kind: u32,
     channel: SiChannel,
 }
 
 impl Pad {
-    pub fn init(channel: SiChannel) -> Self {
+    pub fn init(channel: SiChannel) -> Result<Self, TransferError> {
+        let kind = SerialInterface::get_type(channel)?;
         match channel {
             SiChannel::Zero => SiPoll::read().with_chan_0_enable(Enabled::Enabled).write(),
             SiChannel::One => SiPoll::read().with_chan_1_enable(Enabled::Enabled).write(),
@@ -24,7 +26,7 @@ impl Pad {
         SiComm::read()
             .with_read_status_interrupt_mask(Mask::Enabled)
             .write();
-        Self { channel }
+        Ok(Self { channel, kind })
     }
 
     /// # Errors
@@ -35,28 +37,24 @@ impl Pad {
     /// `Underrun`: you had a buffer underrun
     /// `Collision`: your values are getting modified while read hopefully this doesnt happen
 
-    pub fn read(&self) -> Result<Status, TransferError> {
-        //TODO: FIGURE OTU WHAT SI DOESN"T LIKE THISSSS
-        //let kind = SerialInterface::get_type(self.channel).unwrap();
-
-        match self.channel {
-            SiChannel::Zero => Ok(Status::from((
-                SiInputBufHi::read_zero(),
-                SiInputBufLo::read_zero(),
-            ))),
-            SiChannel::One => Ok(Status::from((
-                SiInputBufHi::read_one(),
-                SiInputBufLo::read_one(),
-            ))),
-            SiChannel::Two => Ok(Status::from((
-                SiInputBufHi::read_two(),
-                SiInputBufLo::read_two(),
-            ))),
-            SiChannel::Three => Ok(Status::from((
-                SiInputBufHi::read_three(),
-                SiInputBufLo::read_three(),
-            ))),
+    pub fn read(&self) -> Status {
+        if self.kind & 0x0800_0000 != 0 {
+            match self.channel {
+                SiChannel::Zero => {
+                    return Status::from((SiInputBufHi::read_zero(), SiInputBufLo::read_zero()))
+                }
+                SiChannel::One => {
+                    return Status::from((SiInputBufHi::read_one(), SiInputBufLo::read_one()))
+                }
+                SiChannel::Two => {
+                    return Status::from((SiInputBufHi::read_two(), SiInputBufLo::read_two()))
+                }
+                SiChannel::Three => {
+                    return Status::from((SiInputBufHi::read_three(), SiInputBufLo::read_three()))
+                }
+            }
         }
+        Status::default()
     }
 }
 
