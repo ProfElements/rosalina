@@ -11,7 +11,9 @@ use rosalina::{
     exception::{decrementer_set, Exception},
     exi::ExternalInterface,
     interrupts,
+    mmio::si::SiChannel,
     os::OS,
+    pad::Pad,
     vi::{ViFramebuffer, VideoSystem},
     DOLPHIN_HLE,
 };
@@ -37,10 +39,11 @@ extern "C" fn main() -> ! {
     let mut vi = VideoSystem::new(ViFramebuffer::new(640, 480));
     let write_ptr = vi.framebuffer.data.as_mut_ptr().cast::<u16>();
     let _sram = ExternalInterface::get_sram();
-    //for _n in 0..60 {
+    let pad = Pad::init(SiChannel::Zero);
     loop {
         let time = Instant::now().ticks;
-
+        let status = pad.read().unwrap();
+        unsafe { write!(DOLPHIN_HLE, "{status:?}").unwrap() }
         for i in 0..(vi.framebuffer.width * vi.framebuffer.height) {
             unsafe {
                 write_ptr.offset(i.try_into().unwrap()).write(0xff80);
