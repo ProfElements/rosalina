@@ -215,6 +215,15 @@ impl From<bool> for ErrorLatch {
     }
 }
 
+impl From<ErrorLatch> for bool {
+    fn from(value: ErrorLatch) -> Self {
+        match value {
+            ErrorLatch::Latched => true,
+            ErrorLatch::Idle => false,
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[repr(transparent)]
 pub struct SiInputBufLo(u32);
@@ -392,14 +401,13 @@ impl SiPoll {
         self
     }
 
-    pub fn with_x_poll_time(&mut self, poll_time: u8) -> &mut Self {
-        debug_assert!(poll_time < 2 ^ 8, "poll time must be less then 256");
+    pub fn with_y_poll_time(&mut self, poll_time: u8) -> &mut Self {
         self.0.set_bits(8..=15, poll_time.into());
         self
     }
 
-    pub fn with_y_poll_time(&mut self, poll_time: u8) -> &mut Self {
-        debug_assert!(poll_time < 2 ^ 8, "poll time must be less then 256");
+    pub fn with_x_poll_time(&mut self, poll_time: u16) -> &mut Self {
+        debug_assert!(poll_time < 10000, "poll time must be less then 10000");
         self.0.set_bits(16..=25, poll_time.into());
         self
     }
@@ -600,6 +608,7 @@ impl SiComm {
     }
 }
 
+#[derive(PartialEq, Eq)]
 pub enum CommandState {
     Complete,
     Pending,
@@ -624,6 +633,7 @@ impl From<CommandState> for bool {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 pub enum SiChannel {
     Zero,
     One,
@@ -705,6 +715,14 @@ impl SiStatus {
         Self(0)
     }
 
+    pub fn read() -> Self {
+        SI_STATUS.read()
+    }
+
+    pub fn write(self) {
+        SI_STATUS.write(self);
+    }
+
     pub fn channel_3_underrun(&self) -> ErrorStatus {
         self.0.get_bit(0).into()
     }
@@ -736,7 +754,7 @@ impl SiStatus {
         self.0.get_bit(3).into()
     }
 
-    pub fn with_chan_3_no_respone(&mut self, status: ErrorStatus) -> &mut Self {
+    pub fn with_chan_3_no_response(&mut self, status: ErrorStatus) -> &mut Self {
         self.0.set_bit(3, status.into());
         self
     }
@@ -927,6 +945,7 @@ impl SiStatus {
     }
 }
 
+#[derive(PartialEq, Eq)]
 pub enum BufStatus {
     Copied,
     Idle,

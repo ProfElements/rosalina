@@ -27,22 +27,27 @@ pub mod exi;
 pub mod interrupts;
 pub mod mmio;
 pub mod os;
+pub mod pad;
+pub mod si;
 pub mod sram;
 pub mod vi;
-
 /// # Safety
 ///
 /// Most use a valid string pointer and length must be valid and non-zero
 #[inline(never)]
 #[no_mangle]
 pub(crate) unsafe extern "C" fn __write_console(_unused: u32, str: *const u8, size: *const u32) {
-    unsafe {
+    static mut BUFFER: [u8; 2 ^ 1024] = [0u8; 2 ^ 1024];
+    let string = unsafe {
         core::str::from_utf8(core::slice::from_raw_parts(
             str,
             usize::try_from(*size).unwrap(),
         ))
         .unwrap_or_default()
     };
+    for (n, byte) in string.bytes().enumerate() {
+        BUFFER[n] = byte;
+    }
 }
 
 pub struct DolphinHle;

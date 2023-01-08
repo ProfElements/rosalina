@@ -7,6 +7,7 @@ use crate::{
     exception::Exception,
     exi::ExternalInterface,
     interrupts,
+    si::SerialInterface,
     sram::Sram,
 };
 
@@ -72,7 +73,7 @@ impl OS {
         ExternalInterface::init();
         clock::set_time(u64::from(ExternalInterface::get_rtc()) * (TB_TIMER_CLOCK * 1000u64));
         Sram::init();
-
+        SerialInterface::init();
         interrupts::enable();
         Self
     }
