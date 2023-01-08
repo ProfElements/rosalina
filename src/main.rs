@@ -47,6 +47,12 @@ extern "C" fn main() -> ! {
 
         unsafe { write!(DOLPHIN_HLE, "Status: {status:?}").unwrap() }
 
+        if status.start() {
+            unsafe {
+                abort();
+            }
+        }
+
         for i in 0..(vi.framebuffer.width * vi.framebuffer.height) {
             unsafe {
                 write_ptr.offset(i.try_into().unwrap()).write(0xff80);
