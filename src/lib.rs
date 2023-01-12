@@ -1,6 +1,15 @@
 #![no_std]
-#![feature(asm_experimental_arch, asm_const, naked_functions, strict_provenance)]
-#![feature(inline_const, extern_types)]
+#![feature(
+    asm_experimental_arch,
+    asm_const,
+    naked_functions,
+    strict_provenance,
+    inline_const,
+    extern_types,
+    ptr_from_ref,
+    slice_as_chunks,
+    allocator_api
+)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![allow(
@@ -22,15 +31,19 @@ pub mod arch;
 pub mod asm_runtime;
 pub mod cache;
 pub mod clock;
+pub mod config;
 pub mod exception;
 pub mod exi;
 pub mod interrupts;
+pub mod ios;
+pub mod ipc;
 pub mod mmio;
 pub mod os;
 pub mod pad;
 pub mod si;
 pub mod sram;
 pub mod vi;
+pub mod wii;
 /// # Safety
 ///
 /// Most use a valid string pointer and length must be valid and non-zero

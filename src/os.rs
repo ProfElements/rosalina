@@ -1,14 +1,21 @@
-use core::ptr::from_exposed_addr_mut;
+use core::{
+    ptr::from_exposed_addr_mut,
+    sync::atomic::{AtomicIsize, Ordering},
+};
 
+use alloc::ffi::CString;
 use linked_list_allocator::LockedHeap;
 
 use crate::{
     clock::{self, TB_TIMER_CLOCK},
+    config::Config,
     exception::Exception,
     exi::ExternalInterface,
     interrupts,
+    ipc::{ios_close, ios_ioctl_async, ios_open, Ipc, IOS_COUNT},
     si::SerialInterface,
     sram::Sram,
+    wii::Wii,
 };
 
 pub enum SystemState {
@@ -74,10 +81,50 @@ impl OS {
         clock::set_time(u64::from(ExternalInterface::get_rtc()) * (TB_TIMER_CLOCK * 1000u64));
         Sram::init();
         SerialInterface::init();
+        Ipc::init();
         interrupts::enable();
+
+        for n in 0..IOS_COUNT {
+            ios_close(isize::try_from(n).unwrap());
+        }
+
+        ios_open(CString::new("/dev/es").unwrap(), 0);
+
+        let _im_fd = ios_open(CString::new("/dev/stm/immediate").unwrap(), 0);
+        let evt_fd = ios_open(CString::new("/dev/stm/eventhook").unwrap(), 0);
+
+        EVT_FD.store(evt_fd, Ordering::Relaxed);
+
+        ios_ioctl_async(
+            evt_fd,
+            0x1000,
+            &[0u8; 0x20],
+            &[0u8; 0x20],
+            Some(stm_event_handler),
+            None::<&mut ()>,
+        );
+
+        let _ = Config::init();
+        let _ = Wii::init();
         Self
     }
 }
+
+static EVT_FD: AtomicIsize = AtomicIsize::new(0);
+
+fn stm_event_handler(_data: *mut ()) {
+    ios_ioctl_async(
+        EVT_FD.load(Ordering::Relaxed),
+        0x1000,
+        &[0u8; 0x20],
+        &[0u8; 0x20],
+        Some(stm_event_handler),
+        None::<&mut ()>,
+    );
+}
+
+#[repr(align(32))]
+pub struct Align32<T>(pub T);
 
 unsafe fn low_mem_init() {
     MEM1_ALLOCATOR
