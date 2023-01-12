@@ -153,6 +153,30 @@ pub extern "C" fn dc_flush_range_no_sync(ptr: *mut u8, len: usize) {
 }
 
 #[naked]
+pub extern "C" fn dc_flush_range(ptr: *const u8, len: usize) {
+    unsafe {
+        core::arch::asm!(
+            "cmplwi 4,0",
+            "blelr",
+            "clrlwi. 5,3,27",
+            "beq 1f",
+            "addi 4,4,0x20",
+            "1:",
+            "addi 4,4,0x1F",
+            "srwi 4,4,5",
+            "mtctr 4",
+            "2:",
+            "dcbf 0,3",
+            "addi 3,3,0x20",
+            "bdnz 2b",
+            "sc",
+            "blr",
+            options(noreturn)
+        )
+    }
+}
+
+#[naked]
 pub extern "C" fn dc_invalidate_range(ptr: *mut u8, len: usize) {
     unsafe {
         core::arch::asm!(
