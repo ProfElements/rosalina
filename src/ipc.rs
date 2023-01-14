@@ -235,7 +235,7 @@ pub fn ios_ioctl_async<T>(
     PPC_CTRL.write((PPC_CTRL.read() & 0x30) | 0x01);
 }
 
-pub fn ios_read(fd: isize, buf: &mut [u8]) -> usize {
+pub fn ios_read(fd: isize, buf: &mut [u8]) -> isize {
     let request = Box::leak(Box::new(IpcRequest::new()));
     request.magic = REQ_MAGIC.load(Ordering::Relaxed);
     request.cmd = usize::from(IPCCommand::Read);
@@ -253,7 +253,7 @@ pub fn ios_read(fd: isize, buf: &mut [u8]) -> usize {
     dc_flush_range(request.cast(), core::mem::size_of::<IpcRequest>());
     PPC_MSG.write(request.map_addr(|addr| addr - 0x8000_0000).addr());
     PPC_CTRL.write((PPC_CTRL.read() & 0x30) | 0x01);
-    unsafe { *request }.result.try_into().unwrap()
+    unsafe { *request }.result
 }
 
 impl IpcRequest {

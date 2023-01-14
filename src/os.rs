@@ -1,9 +1,9 @@
 use core::{
+    mem::ManuallyDrop,
     ptr::from_exposed_addr_mut,
-    sync::atomic::{AtomicIsize, Ordering},
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
-use alloc::ffi::CString;
 use linked_list_allocator::LockedHeap;
 
 use crate::{
@@ -12,7 +12,8 @@ use crate::{
     exception::Exception,
     exi::ExternalInterface,
     interrupts,
-    ipc::{ios_close, ios_ioctl_async, ios_open, Ipc, IOS_COUNT},
+    ios::{FileAccessMode, Ios},
+    ipc::{ios_ioctl_async, Ipc},
     si::SerialInterface,
     sram::Sram,
     wii::Wii,
@@ -84,19 +85,14 @@ impl OS {
         Ipc::init();
         interrupts::enable();
 
-        for n in 0..IOS_COUNT {
-            ios_close(isize::try_from(n).unwrap());
-        }
+        let _ = ManuallyDrop::new(Ios::open("/dev/es", FileAccessMode::None).unwrap());
+        let _ = Ios::open("/dev/stm/immediate", FileAccessMode::None).unwrap();
+        let event_hook = Ios::open("/dev/stm/eventhook", FileAccessMode::None).unwrap();
 
-        ios_open(CString::new("/dev/es").unwrap(), 0);
-
-        let _im_fd = ios_open(CString::new("/dev/stm/immediate").unwrap(), 0);
-        let evt_fd = ios_open(CString::new("/dev/stm/eventhook").unwrap(), 0);
-
-        EVT_FD.store(evt_fd, Ordering::Relaxed);
+        EVT_FD.store(event_hook.fd(), Ordering::Relaxed);
 
         ios_ioctl_async(
-            evt_fd,
+            event_hook.fd().try_into().unwrap(),
             0x1000,
             &[0u8; 0x20],
             &[0u8; 0x20],
@@ -110,11 +106,11 @@ impl OS {
     }
 }
 
-static EVT_FD: AtomicIsize = AtomicIsize::new(0);
+static EVT_FD: AtomicUsize = AtomicUsize::new(0);
 
 fn stm_event_handler(_data: *mut ()) {
     ios_ioctl_async(
-        EVT_FD.load(Ordering::Relaxed),
+        EVT_FD.load(Ordering::Relaxed).try_into().unwrap(),
         0x1000,
         &[0u8; 0x20],
         &[0u8; 0x20],

@@ -1,5 +1,3 @@
-use alloc::ffi::CString;
-
 use crate::ios::{FileAccessMode, Ios};
 
 pub struct Config {
@@ -12,15 +10,11 @@ impl Config {
         let mut data = [0u8; 0x4000];
         let mut txt_data = [0u8; 0x101];
 
-        let mut config = Ios::open(
-            CString::new("/shared2/sys/SYSCONF").unwrap(),
-            FileAccessMode::Read,
-        )
-        .unwrap();
+        let mut config = Ios::open("/shared2/sys/SYSCONF", FileAccessMode::Read).unwrap();
         config.read(&mut data);
 
         let mut txt_fd = Ios::open(
-            CString::new("/title/00000001/00000002/data/setting.txt").unwrap(),
+            "/title/00000001/00000002/data/setting.txt",
             FileAccessMode::Read,
         )
         .unwrap();

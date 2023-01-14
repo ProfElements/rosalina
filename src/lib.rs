@@ -7,8 +7,7 @@
     inline_const,
     extern_types,
     ptr_from_ref,
-    slice_as_chunks,
-    allocator_api
+    slice_as_chunks
 )]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]

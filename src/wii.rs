@@ -1,5 +1,3 @@
-use alloc::ffi::CString;
-
 use crate::ios::{FileAccessMode, Ios};
 
 #[repr(C)]
@@ -88,16 +86,13 @@ impl Wii {
         let mut info = None;
 
         if let Ok(mut state) = Ios::open(
-            CString::new("/title/00000001/00000002/data/state.dat").unwrap(),
+            "/title/00000001/00000002/data/state.dat",
             FileAccessMode::Read,
         ) {
             state.read(&mut state_buf);
             flags = Some(StateFlags::try_from(&state_buf).unwrap());
         }
-        if let Ok(mut nand_info) = Ios::open(
-            CString::new("/shared2/sys/NANDBOOTINFO").unwrap(),
-            FileAccessMode::Read,
-        ) {
+        if let Ok(mut nand_info) = Ios::open("/shared2/sys/NANDBOOTINFO", FileAccessMode::Read) {
             nand_info.read(&mut nand_info_buf);
             info = Some(NandBootInfo::try_from(&nand_info_buf).unwrap());
         }
