@@ -5,23 +5,19 @@ use core::{
 };
 
 use alloc::{boxed::Box, ffi::CString};
-use voladdress::{Safe, VolAddress, VolBlock};
 
 use crate::{
     cache::{dc_flush_range, dc_invalidate_range},
     interrupts::Interrupt,
-    mmio::pi::{InterruptMask, Mask},
+    mmio::{
+        ipc::{IpcControl, IpcInterruptFlags, IpcRequestAddr},
+        pi::{InterruptMask, InterruptState, Mask},
+    },
     DOLPHIN_HLE,
 };
 
 static REQ_MAGIC: AtomicUsize = AtomicUsize::new(0);
 pub const IOS_COUNT: usize = 32;
-
-pub const BASE: usize = 0xCD00_0000;
-pub const IPC_VOLBLOCK: VolBlock<u32, Safe, Safe, 0x80> = unsafe { VolBlock::new(BASE) };
-
-pub const PPC_CTRL: VolAddress<usize, Safe, Safe> = unsafe { VolAddress::new(BASE + 0x4) };
-pub const PPC_MSG: VolAddress<usize, Safe, Safe> = unsafe { VolAddress::new(BASE) };
 
 pub struct Ipc;
 
@@ -30,18 +26,26 @@ impl Ipc {
         REQ_MAGIC.store(0xDEEDBEEF, Ordering::Relaxed);
 
         Interrupt::set_interrupt_handler(Interrupt::InterprocessControl, |_| {
-            let reg = PPC_CTRL.read();
-            unsafe { write!(DOLPHIN_HLE, "IPC HIT").unwrap() };
-            if reg & 0x0014 == 0x0014 {
-                let request: *const IpcRequest = from_exposed_addr(
-                    usize::try_from(IPC_VOLBLOCK.get(2).unwrap().read()).unwrap(),
-                );
+            let ctrl = IpcControl::read_ppc();
+            unsafe { write!(DOLPHIN_HLE, "IPC HIT",).unwrap() };
+            if ctrl.y1() && ctrl.ix1() {
+                unsafe { write!(DOLPHIN_HLE, "GOT TO REQUEST",).unwrap() };
+                let request: *const IpcRequest =
+                    from_exposed_addr::<IpcRequest>(IpcRequestAddr::read_arm().addr());
                 if request.is_null() {
                     return Err("Request is null");
                 }
                 // ACKCKCKCKC
-                PPC_CTRL.write((reg & 0x30) | 0x04);
-                IPC_VOLBLOCK.get(48 >> 2).unwrap().write(0x40000000);
+
+                IpcControl::new()
+                    .with_ix1(ctrl.ix1())
+                    .with_ix2(ctrl.ix2())
+                    .with_y1(true)
+                    .write_ppc();
+
+                IpcInterruptFlags::new()
+                    .with_ipc_interupt(InterruptState::Happened)
+                    .write_ppc();
 
                 let request = request.map_addr(|addr| addr + 0x8000_0000);
                 dc_invalidate_range(
@@ -73,14 +77,29 @@ impl Ipc {
                     }
                 }
 
-                PPC_CTRL.write((reg & 0x30) | 0x8);
+                IpcControl::new()
+                    .with_ix1(ctrl.ix1())
+                    .with_ix2(ctrl.ix2())
+                    .with_y2(true)
+                    .write_ppc();
             }
 
-            if reg & 0x0022 == 0x0022 {
-                PPC_CTRL.write(reg & 0x30 | 0x2);
-                IPC_VOLBLOCK.get(48 >> 2).unwrap().write(0x40000000);
+            if ctrl.x2() && ctrl.ix2() {
+                IpcControl::new()
+                    .with_ix1(ctrl.ix1())
+                    .with_ix2(ctrl.ix2())
+                    .with_x2(true)
+                    .write_ppc();
 
-                PPC_CTRL.write(reg & 0x30 | 0x8);
+                IpcInterruptFlags::new()
+                    .with_ipc_interupt(InterruptState::Happened)
+                    .write_ppc();
+
+                IpcControl::new()
+                    .with_ix1(ctrl.ix1())
+                    .with_ix2(ctrl.ix2())
+                    .with_y2(true)
+                    .write_ppc();
             }
 
             Ok(())
@@ -90,8 +109,11 @@ impl Ipc {
             .with_interprocess_control(Mask::Enabled)
             .write();
 
-        PPC_CTRL.write(56);
-
+        IpcControl::new()
+            .with_y2(true)
+            .with_ix1(true)
+            .with_ix2(true)
+            .write_ppc();
         Self
     }
 }
@@ -172,8 +194,15 @@ pub fn ios_open(file_path: CString, mode: usize) -> isize {
 
     let request: *mut IpcRequest = request;
     dc_flush_range(request.cast(), core::mem::size_of::<IpcRequest>());
-    PPC_MSG.write(request.map_addr(|addr| addr - 0x8000_0000).addr());
-    PPC_CTRL.write((PPC_CTRL.read() & 0x30) | 0x01);
+    IpcRequestAddr::new()
+        .with_addr(request.map_addr(|addr| addr - 0x8000_0000).addr())
+        .write_ppc();
+
+    IpcControl::new()
+        .with_ix1(IpcControl::read_ppc().ix1())
+        .with_ix2(IpcControl::read_ppc().ix2())
+        .with_x1(true)
+        .write_ppc();
     unsafe {
         write!(DOLPHIN_HLE, "{:?}", *request).unwrap();
 
@@ -190,8 +219,15 @@ pub fn ios_close(fd: isize) {
 
     let request: *mut IpcRequest = request;
     dc_flush_range(request.cast(), core::mem::size_of::<IpcRequest>());
-    PPC_MSG.write(request.map_addr(|addr| addr - 0x8000_0000).addr());
-    PPC_CTRL.write((PPC_CTRL.read() & 0x30) | 0x01);
+    IpcRequestAddr::new()
+        .with_addr(request.map_addr(|addr| addr - 0x8000_0000).addr())
+        .write_ppc();
+
+    IpcControl::new()
+        .with_ix1(IpcControl::read_ppc().ix1())
+        .with_ix2(IpcControl::read_ppc().ix2())
+        .with_x1(true)
+        .write_ppc();
 }
 
 pub fn ios_ioctl_async<T>(
@@ -231,8 +267,16 @@ pub fn ios_ioctl_async<T>(
 
     let request: *mut IpcRequest = request;
     dc_flush_range(request.cast(), core::mem::size_of::<IpcRequest>());
-    PPC_MSG.write(request.map_addr(|addr| addr - 0x8000_0000).addr());
-    PPC_CTRL.write((PPC_CTRL.read() & 0x30) | 0x01);
+
+    IpcRequestAddr::new()
+        .with_addr(request.map_addr(|addr| addr - 0x8000_0000).addr())
+        .write_ppc();
+
+    IpcControl::new()
+        .with_ix1(IpcControl::read_ppc().ix1())
+        .with_ix2(IpcControl::read_ppc().ix2())
+        .with_x1(true)
+        .write_ppc();
 }
 
 pub fn ios_read(fd: isize, buf: &mut [u8]) -> isize {
@@ -251,8 +295,15 @@ pub fn ios_read(fd: isize, buf: &mut [u8]) -> isize {
 
     let request: *mut IpcRequest = request;
     dc_flush_range(request.cast(), core::mem::size_of::<IpcRequest>());
-    PPC_MSG.write(request.map_addr(|addr| addr - 0x8000_0000).addr());
-    PPC_CTRL.write((PPC_CTRL.read() & 0x30) | 0x01);
+    IpcRequestAddr::new()
+        .with_addr(request.map_addr(|addr| addr - 0x8000_0000).addr())
+        .write_ppc();
+
+    IpcControl::new()
+        .with_ix1(IpcControl::read_ppc().ix1())
+        .with_ix2(IpcControl::read_ppc().ix2())
+        .with_x1(true)
+        .write_ppc();
     unsafe { *request }.result
 }
 
