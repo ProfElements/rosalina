@@ -44,7 +44,7 @@ impl IpcRequestAddr {
     }
 
     pub fn addr(&self) -> usize {
-        self.0.get_bits(0..=31).try_into().unwrap()
+        self.0.get_bits(0..=31)
     }
 
     pub fn with_addr(&mut self, addr: usize) -> &mut Self {

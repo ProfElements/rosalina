@@ -95,7 +95,7 @@ mod internal {
     impl IosFileDesc {
         pub fn open(path: &str, mode: FileAccessMode) -> Result<Self, Error> {
             let path = CString::new(path).unwrap();
-            match ios_open(path.into(), mode.into()) {
+            match ios_open(path, mode.into()) {
                 -1 | -102 => Err(Error::PermissionDenied),
                 -2 | -105 => Err(Error::FileExists),
                 -4 | -101 => Err(Error::InvalidArg),
