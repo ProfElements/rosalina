@@ -23,6 +23,7 @@
 use core::fmt::Write;
 
 use alloc::string::ToString;
+use spin::Mutex;
 
 extern crate alloc;
 
@@ -62,23 +63,44 @@ pub(crate) unsafe extern "C" fn __write_console(_unused: u32, str: *const u8, si
     }
 }
 
-pub struct DolphinHle;
-pub static mut DOLPHIN_HLE: DolphinHle = DolphinHle;
+pub static mut DOLPHIN_HLE: Writer = Writer;
 
-impl Write for DolphinHle {
+pub struct Writer;
+
+impl core::fmt::Write for Writer {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let len = u32::try_from(s.len()).unwrap();
+        let len: u32 = u32::try_from(s.len()).expect("String length is longer then u32::MAX");
         unsafe {
-            __write_console(0, s.as_ptr(), &len);
+            __write_console(
+                core::ptr::from_mut(self).addr().try_into().unwrap(),
+                s.as_ptr(),
+                &len,
+            );
         }
         Ok(())
     }
 
     fn write_fmt(&mut self, args: core::fmt::Arguments<'_>) -> core::fmt::Result {
-        if let Some(str) = args.as_str() {
-            self.write_str(str)
+        if let Some(s) = args.as_str() {
+            self.write_str(s)
         } else {
             self.write_str(&args.to_string())
         }
     }
+}
+
+pub fn __print(args: core::fmt::Arguments) {
+    static WRITER: Mutex<Writer> = Mutex::new(Writer);
+
+    interrupts::disable();
+    let mut writer = WRITER.lock();
+    writer.write_fmt(args).unwrap();
+    interrupts::enable();
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($t:tt)*) => {
+        $crate::__print(format_args!($($t)*))
+    };
 }
