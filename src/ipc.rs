@@ -19,6 +19,11 @@ use crate::{
 static REQ_MAGIC: AtomicUsize = AtomicUsize::new(0);
 pub const IOS_COUNT: usize = 32;
 
+//TODO:
+// Change callback_addr + callback_data = Option<Box<dyn Fn(*mut ())>>;
+// Make IpcCommand repr(u32) and just set it in IpcRequest
+// Somehow not leak the data of IpcRequest longer the the reply handler
+
 pub struct Ipc;
 
 impl Ipc {
