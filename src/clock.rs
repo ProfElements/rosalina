@@ -1,3 +1,5 @@
+use core::ops::Sub;
+
 use bit_field::BitField;
 
 pub struct Instant {
@@ -39,6 +41,17 @@ impl Instant {
 
     pub const fn nanosecs(&self) -> u64 {
         (self.ticks * 8000) / (TB_TIMER_CLOCK / 125)
+    }
+
+    pub(crate) const fn from_ticks(ticks: u64) -> Self {
+        Self { ticks }
+    }
+}
+
+impl Sub for Instant {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::from_ticks(self.ticks - rhs.ticks)
     }
 }
 
