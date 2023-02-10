@@ -92,10 +92,8 @@ impl core::fmt::Write for Writer {
 pub fn __print(args: core::fmt::Arguments) {
     static WRITER: Mutex<Writer> = Mutex::new(Writer);
 
-    interrupts::disable();
     let mut writer = WRITER.lock();
     writer.write_fmt(args).unwrap();
-    interrupts::enable();
 }
 
 #[macro_export]
@@ -103,4 +101,10 @@ macro_rules! print {
     ($($t:tt)*) => {
         $crate::__print(format_args!($($t)*))
     };
+}
+
+#[macro_export]
+macro_rules! println {
+    () => { $crate::print!("\n") };
+    ($($t:tt)*) => { $crate::__print(format_args!("{}\n", format_args!($($t)*))) };
 }
