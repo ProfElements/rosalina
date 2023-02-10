@@ -4,7 +4,7 @@
 
 extern crate alloc;
 
-use core::{alloc::Layout, fmt::Write, panic::PanicInfo, ptr::from_exposed_addr};
+use core::{alloc::Layout, panic::PanicInfo, ptr::from_exposed_addr};
 
 use rosalina::{
     clock::Instant,
@@ -14,8 +14,8 @@ use rosalina::{
     mmio::si::SiChannel,
     os::OS,
     pad::Pad,
+    println,
     vi::{ViFramebuffer, VideoSystem},
-    DOLPHIN_HLE,
 };
 
 #[no_mangle]
@@ -24,34 +24,29 @@ extern "C" fn main() -> ! {
 
     interrupts::disable();
     Exception::set_exception_handler(Exception::Decrementer, |_, _| {
-        unsafe {
-            write!(DOLPHIN_HLE, "Decrementer worked").ok();
-        }
+        println!("Decrementer worked");
         Ok(())
     });
     decrementer_set(0xFF);
     interrupts::enable();
 
-    unsafe {
-        write!(DOLPHIN_HLE, "HELLO WORLD").ok();
-    }
+    println!("Hello, world!");
 
     let mut vi = VideoSystem::new(ViFramebuffer::new(640, 480));
     let write_ptr = vi.framebuffer.data.as_mut_ptr().cast::<u16>();
     let _sram = ExternalInterface::get_sram();
     let pad = Pad::init(SiChannel::Zero).unwrap();
 
-    loop {
-        let time = Instant::now().ticks;
+    'main_loop: loop {
         let status = pad.read();
 
-        unsafe { write!(DOLPHIN_HLE, "Status: {status:?}").unwrap() }
+        println!("Pad zero status: {status:?}");
 
         if status.start() {
-            unsafe {
-                abort();
-            }
+            break 'main_loop;
         }
+
+        let start_draw_time = Instant::now();
 
         for i in 0..(vi.framebuffer.width * vi.framebuffer.height) {
             unsafe {
@@ -59,42 +54,39 @@ extern "C" fn main() -> ! {
             }
         }
 
-        let diff = Instant::now().ticks.wrapping_sub(time);
-        unsafe {
-            write!(
-                DOLPHIN_HLE,
-                "Rendering takes {} millisecs",
-                Instant { ticks: diff }.millisecs()
-            )
-            .ok();
-            write!(DOLPHIN_HLE, "Monotick clock: {}", Instant::now().secs()).ok();
-            write!(DOLPHIN_HLE, "RTC clock: {}", ExternalInterface::get_rtc()).ok();
-        };
+        let end_draw_time = Instant::now();
+
+        println!(
+            "Draw time: {} milliseconds",
+            (end_draw_time - start_draw_time).millisecs()
+        );
+
+        println!(
+            "Monotick clock: {} seconds | RTC clock: {} seconds",
+            Instant::now().secs(),
+            ExternalInterface::get_rtc()
+        );
 
         vi.wait_for_retrace();
     }
-    //unsafe { abort() }
+    unsafe { abort() }
 }
 
 #[panic_handler]
 fn panic_handler(info: &PanicInfo) -> ! {
-    unsafe {
-        write!(DOLPHIN_HLE, "{info}").ok();
+    println!("{info}");
+    loop {
+        core::hint::spin_loop();
     }
-    loop {}
 }
 
 #[alloc_error_handler]
 fn alloc_handler(layout: Layout) -> ! {
-    unsafe {
-        write!(
-            DOLPHIN_HLE,
-            "Failed to allocate item with \n Size: {}\n, Align: {}\n",
-            layout.size(),
-            layout.align()
-        )
-        .ok();
-    }
+    println!(
+        "Failed to allocate item with \n Size: {}\n, Align: {}\n",
+        layout.size(),
+        layout.align()
+    );
     panic!()
 }
 
@@ -109,7 +101,7 @@ pub unsafe extern "C" fn abort() -> ! {
     .unwrap();
 
     if str == "STUBHAXX" {
-        write!(DOLPHIN_HLE, "Found stub {str}").ok();
+        println!("Found stub: {str}");
         let func = unsafe {
             core::mem::transmute::<*const (), extern "C" fn() -> !>(from_exposed_addr(0x80001800))
         };
