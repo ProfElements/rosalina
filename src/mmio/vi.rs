@@ -196,6 +196,7 @@ impl From<DisplayInterlacedMode> for bool {
     }
 }
 
+#[derive(PartialEq, Eq)]
 pub enum Reset {
     Reset,
     NoReset,
