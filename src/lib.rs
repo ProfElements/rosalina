@@ -34,6 +34,7 @@ pub mod clock;
 pub mod config;
 pub mod exception;
 pub mod exi;
+pub mod gfx;
 pub mod interrupts;
 pub mod ios;
 pub mod ipc;

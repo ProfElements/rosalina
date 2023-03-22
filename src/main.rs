@@ -1,15 +1,17 @@
 #![no_std]
-#![no_main]
-#![feature(asm_experimental_arch, alloc_error_handler, strict_provenance)]
+#![feature(start, asm_experimental_arch, alloc_error_handler, strict_provenance)]
+#![cfg_attr(not(miri), no_main)]
 
 extern crate alloc;
 
 use core::{alloc::Layout, panic::PanicInfo, ptr::from_exposed_addr};
 
+use bit_field::BitField;
 use rosalina::{
     clock::Instant,
     exception::{decrementer_set, Exception},
     exi::ExternalInterface,
+    gfx::{self, Fifo},
     interrupts,
     mmio::si::SiChannel,
     os::OS,
@@ -17,6 +19,13 @@ use rosalina::{
     println,
     vi::{ViFramebuffer, VideoSystem},
 };
+
+#[cfg(miri)]
+#[start]
+fn start(_: isize, _: *const *const u8) -> isize {
+    main();
+    0
+}
 
 #[no_mangle]
 extern "C" fn main() -> ! {
@@ -29,6 +38,28 @@ extern "C" fn main() -> ! {
     });
     decrementer_set(0xFF);
     interrupts::enable();
+    let mut fifo = Fifo::<65536>::new();
+    fifo.link_pi();
+    fifo.link_cp();
+    fifo.confirm_link();
+    gfx::enable_write_gather_pipe();
+
+    println!("Writing to gather pipe");
+
+    let mut ctrl = 0;
+    ctrl.set_bits(24..=31, 0x43)
+        .set_bits(0..=2, 1)
+        .set_bits(3..=5, 0)
+        .set_bit(6, true);
+    unsafe {
+        let gp = 0xCC00_8000 as *mut u32;
+        gp.write_volatile(0x61);
+        gp.write_volatile(ctrl);
+
+        for _ in 0..8 {
+            gp.write_volatile(0x0);
+        }
+    }
 
     println!("Hello, world!");
 

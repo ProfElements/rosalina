@@ -1,7 +1,7 @@
 use bit_field::BitField;
 use voladdress::{Safe, VolAddress};
 
-use super::pi::InterruptState;
+use super::{pi::InterruptState, Physical};
 
 pub const BASE: usize = 0xCC00_2000;
 
@@ -693,7 +693,8 @@ impl Framebuffer {
         self.0.get_bits(0..=23).try_into().unwrap()
     }
 
-    pub fn with_addr(&mut self, addr: u32) -> &mut Self {
+    pub fn with_addr(&mut self, physical_addr: Physical<u8>) -> &mut Self {
+        let addr = u32::try_from(physical_addr.addr()).unwrap();
         if addr <= 0x00fffe00 {
             self.0.set_bits(0..=23, addr);
             self

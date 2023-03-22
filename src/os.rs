@@ -24,7 +24,6 @@ use crate::{
         pi::InterruptState,
         vi::Reset,
     },
-    println,
     si::SerialInterface,
     sram::Sram,
     wii::Wii,

@@ -17,6 +17,7 @@ use crate::{
             HorizontalScale, HorizontalSteppingWidth, HorizontalTimingOne, HorizontalTimingZero,
             VerticalTiming, VideoClock, VideoFormat,
         },
+        Physical,
     },
 };
 
@@ -48,7 +49,7 @@ pub struct VideoSystem {
 
 static RETRACE_COUNT: AtomicUsize = AtomicUsize::new(0);
 impl VideoSystem {
-    pub fn new(framebuffer: ViFramebuffer) -> Self {
+    pub fn new(mut framebuffer: ViFramebuffer) -> Self {
         VerticalTiming::new()
             .with_active_video_lines((framebuffer.height / 2).try_into().unwrap())
             .with_equalizaion_pulse(6)
@@ -97,15 +98,14 @@ impl VideoSystem {
             .write_even();
 
         Framebuffer::new()
-            .with_addr(u32::try_from(framebuffer.data.as_ptr().addr()).unwrap() - 0x8000_0000u32)
+            .with_addr(Physical::new(framebuffer.data.as_mut_ptr()))
             .with_horizontal_offset(0)
             .write_top_left();
 
         Framebuffer::new()
-            .with_addr(
-                u32::try_from(framebuffer.data.as_ptr().addr()).unwrap() - 0x8000_0000
-                    + u32::try_from(framebuffer.width * 2).unwrap(),
-            )
+            .with_addr(Physical::new(unsafe {
+                framebuffer.data.as_mut_ptr().add(framebuffer.width * 2)
+            }))
             .with_horizontal_offset(0)
             .write_bottom_left();
 
