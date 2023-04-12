@@ -9,15 +9,17 @@ use core::{alloc::Layout, panic::PanicInfo, ptr::from_exposed_addr};
 use bit_field::BitField;
 use rosalina::{
     clock::Instant,
+    config::Reader,
     exception::{decrementer_set, Exception},
     exi::ExternalInterface,
     gfx::{self, Fifo},
-    interrupts,
+    interrupts, isfs,
     mmio::si::SiChannel,
     os::OS,
     pad::Pad,
     println,
     vi::{ViFramebuffer, VideoSystem},
+    video,
 };
 
 #[cfg(miri)]
@@ -63,6 +65,15 @@ extern "C" fn main() -> ! {
 
     println!("Hello, world!");
 
+    let data = Reader::new(isfs::read("/shared2/sys/SYSCONF").unwrap()).unwrap();
+
+    for name in data.items() {
+        println!("Found data: {name:?}");
+    }
+
+    println!("{:?}", data.find("IPL.PGS"));
+
+    println!("{:?}", video::get_video_format());
     let mut vi = VideoSystem::new(ViFramebuffer::new(640, 480));
     let write_ptr = vi.framebuffer.data.as_mut_ptr().cast::<u16>();
     let _sram = ExternalInterface::get_sram();
