@@ -27,6 +27,10 @@ use spin::Mutex;
 
 extern crate alloc;
 
+pub mod video;
+
+pub mod isfs;
+
 pub mod arch;
 pub mod asm_runtime;
 pub mod cache;
