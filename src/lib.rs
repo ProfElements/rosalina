@@ -51,7 +51,7 @@ pub mod wii;
 #[inline(never)]
 #[no_mangle]
 pub(crate) unsafe extern "C" fn __write_console(_unused: u32, str: *const u8, size: *const u32) {
-    static mut BUFFER: [u8; 2 ^ 1024] = [0u8; 2 ^ 1024];
+    static mut BUFFER: [u8; 1] = [0u8; 1];
     let string = unsafe {
         core::str::from_utf8(core::slice::from_raw_parts(
             str,
@@ -59,8 +59,8 @@ pub(crate) unsafe extern "C" fn __write_console(_unused: u32, str: *const u8, si
         ))
         .unwrap_or_default()
     };
-    for (n, byte) in string.bytes().enumerate() {
-        BUFFER[n] = byte;
+    for byte in string.bytes() {
+        BUFFER[0] = byte;
     }
 }
 
@@ -93,8 +93,10 @@ impl core::fmt::Write for Writer {
 pub fn __print(args: core::fmt::Arguments) {
     static WRITER: Mutex<Writer> = Mutex::new(Writer);
 
+    interrupts::disable();
     let mut writer = WRITER.lock();
     writer.write_fmt(args).unwrap();
+    interrupts::enable();
 }
 
 #[macro_export]
