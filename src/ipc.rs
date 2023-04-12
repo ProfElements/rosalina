@@ -12,6 +12,7 @@ use crate::{
     mmio::{
         ipc::{IpcControl, IpcInterruptFlags, IpcRequestAddr},
         pi::{InterruptMask, InterruptState, Mask},
+        Physical,
     },
     DOLPHIN_HLE,
 };
@@ -32,9 +33,7 @@ impl Ipc {
 
         Interrupt::set_interrupt_handler(Interrupt::InterprocessControl, |_| {
             let ctrl = IpcControl::read_ppc();
-            unsafe { write!(DOLPHIN_HLE, "IPC HIT",).unwrap() };
             if ctrl.y1() && ctrl.ix1() {
-                unsafe { write!(DOLPHIN_HLE, "GOT TO REQUEST",).unwrap() };
                 let request: *const IpcRequest =
                     from_exposed_addr::<IpcRequest>(IpcRequestAddr::read_arm().addr());
                 if request.is_null() {
@@ -185,6 +184,33 @@ impl From<IPCCommand> for usize {
     }
 }
 
+pub fn ios_ioctl<T>(fd: isize, ioctl: usize, buffer_in: &[u8], data_out: &mut T) -> isize {
+    let request = Box::leak(Box::new(IpcRequest::new()));
+
+    request.cmd = usize::from(IPCCommand::Ioctl);
+    request.fd = fd;
+    request.args[0] = ioctl;
+    request.args[1] = Physical::new(buffer_in.as_ptr().cast_mut()).addr();
+    request.args[2] = buffer_in.len();
+    request.args[3] = Physical::new(data_out).addr();
+    request.args[4] = core::mem::size_of::<T>();
+
+    let request: *mut IpcRequest = request;
+    dc_flush_range(request.cast(), core::mem::size_of::<IpcRequest>());
+    IpcRequestAddr::new()
+        .with_addr(Physical::new(request).addr())
+        .write_ppc();
+
+    IpcControl::new()
+        .with_ix1(IpcControl::read_ppc().ix1())
+        .with_ix2(IpcControl::read_ppc().ix2())
+        .with_x1(true)
+        .write_ppc();
+
+    //SKETCHY CHECK IF STILL IN PHYSICAL SPACE
+    unsafe { (*request).result }
+}
+
 pub fn ios_open(file_path: CString, mode: usize) -> isize {
     let request = Box::leak(Box::new(IpcRequest::new()));
 
@@ -292,10 +318,7 @@ pub fn ios_read(fd: isize, buf: &mut [u8]) -> isize {
     request.relauch = 0;
 
     dc_invalidate_range(buf.as_mut_ptr(), buf.len());
-    request.args[0] = buf
-        .as_mut_ptr()
-        .map_addr(|addr| addr - 0x8000_0000)
-        .expose_addr();
+    request.args[0] = Physical::new(buf).addr();
     request.args[1] = buf.len();
 
     let request: *mut IpcRequest = request;
