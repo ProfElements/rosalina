@@ -13,11 +13,11 @@ pub mod pi;
 pub mod si;
 pub mod vi;
 
-pub struct Physical<T> {
+pub struct Physical<T: ?Sized> {
     ptr: *mut T,
 }
 
-impl<T> Physical<T> {
+impl<T: ?Sized> Physical<T> {
     pub fn new(ptr: *mut T) -> Self {
         let addr = ptr.addr();
 

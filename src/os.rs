@@ -9,7 +9,6 @@ use linked_list_allocator::LockedHeap;
 
 use crate::{
     clock::{self, Instant, TB_TIMER_CLOCK},
-    config::Config,
     exception::Exception,
     exi::ExternalInterface,
     interrupts,
@@ -113,7 +112,6 @@ impl OS {
             None::<&mut ()>,
         );
 
-        let _ = Config::init();
         let _ = Wii::init();
         Self
     }
