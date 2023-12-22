@@ -1,6 +1,6 @@
 [build]
 target = "powerpc-nintendo-wii.json"
-rustflags = "-Clink-arg=-Trevolution.ld"
+rustflags = ["-C", "link-arg=-Trevolution.ld", "-C", "link-arg=-nostartfiles", "-C", "link-arg=-nostdlib"]
 
 [unstable]
 build-std-features = ["compiler-builtins-mem"]
