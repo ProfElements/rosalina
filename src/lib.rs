@@ -9,6 +9,7 @@
     ptr_from_ref,
     slice_as_chunks
 )]
+#![warn(clippy::std_instead_of_alloc, clippy::std_instead_of_core)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![allow(
@@ -49,6 +50,10 @@ pub mod si;
 pub mod sram;
 pub mod vi;
 pub mod wii;
+
+pub(crate) mod utils;
+
+pub mod gx;
 /// # Safety
 ///
 /// Most use a valid string pointer and length must be valid and non-zero
@@ -115,3 +120,6 @@ macro_rules! println {
     () => { $crate::print!("\n") };
     ($($t:tt)*) => { $crate::__print(format_args!("{}\n", format_args!($($t)*))) };
 }
+
+mod drivers;
+pub use drivers::sd::SDCard;
