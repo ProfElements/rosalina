@@ -5,7 +5,7 @@ pub struct Config;
 impl Config {
     pub(crate) fn decrypt_txt_buf(txt_buf: &mut [u8]) {
         let mut key: u32 = 0x73B5DBFA;
-        for byte in txt_buf.iter_mut() {
+        for byte in &mut *txt_buf {
             *byte ^= u8::try_from(key & 0xff).unwrap();
             key = (key << 1) | (key >> 31);
         }
@@ -94,7 +94,8 @@ impl<Data: AsRef<[u8]>> Reader<Data> {
 
             let name_length = item_byte.get_bits(0..=3);
             let name_bytes_start = offset + 1;
-            let name_bytes_end = offset + 1 + usize::from(name_length);
+            let name_bytes_end =
+                (offset + 1 + usize::from(name_length)).min(self.input.as_ref().len());
             let name_bytes = self.input.as_ref()[name_bytes_start..=name_bytes_end]
                 .try_into()
                 .unwrap();
@@ -127,7 +128,6 @@ impl<Data: AsRef<[u8]>> Reader<Data> {
                     )
                 }
                 2 => ConfData::Array({
-                    //   println!("{:X}", item_data[0]);
                     self.input
                         .as_ref()
                         .get(item_data_end..item_data_end + usize::from(item_data[0]))
