@@ -7,7 +7,7 @@
     "exe-suffix": ".elf",
     "executables": true,
     "has-rpath": true,
-    "llvm-target": "powerpc-eabi",
+    "llvm-target": "powerpc-unknown-eabi",
     "linker": "powerpc-eabi-gcc",
     "linker-flavor": "gcc",
     "linker-is-gnu": true,

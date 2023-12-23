@@ -4,22 +4,21 @@
 
 extern crate alloc;
 
-use core::{alloc::Layout, panic::PanicInfo, ptr::from_exposed_addr};
+use core::{alloc::Layout, panic::PanicInfo, ptr::from_exposed_addr, time::Duration};
 
-use bit_field::BitField;
 use rosalina::{
     clock::Instant,
-    config::Reader,
     exception::{decrementer_set, Exception},
     exi::ExternalInterface,
-    gfx::{self, Fifo},
-    interrupts, isfs,
+    gfx,
+    gx::Fifo,
+    interrupts,
     mmio::si::SiChannel,
     os::OS,
     pad::Pad,
     println,
     vi::{ViFramebuffer, VideoSystem},
-    video,
+    SDCard,
 };
 
 #[cfg(miri)]
@@ -32,6 +31,7 @@ fn start(_: isize, _: *const *const u8) -> isize {
 #[no_mangle]
 extern "C" fn main() -> ! {
     let _os = OS::init();
+    let pad = Pad::init(SiChannel::Zero).unwrap();
 
     interrupts::disable();
     Exception::set_exception_handler(Exception::Decrementer, |_, _| {
@@ -40,44 +40,72 @@ extern "C" fn main() -> ! {
     });
     decrementer_set(0xFF);
     interrupts::enable();
-    let mut fifo = Fifo::<65536>::new();
-    fifo.link_pi();
-    fifo.link_cp();
-    fifo.confirm_link();
-    gfx::enable_write_gather_pipe();
 
-    println!("Writing to gather pipe");
+    let mut fifo = Fifo::new().init_buffer(32 * 1024).unwrap();
+    fifo.set_as_cpu_fifo();
+    fifo.set_as_gpu_fifo();
+    if fifo.link_cpu_gpu() {
+        interrupts::disable();
+        fifo.set_interrupts();
+        interrupts::enable();
+        gfx::enable_write_gather_pipe();
+        println!("GXFIFO linked!");
+    }
 
-    let mut ctrl = 0;
-    ctrl.set_bits(24..=31, 0x43)
-        .set_bits(0..=2, 1)
-        .set_bits(3..=5, 0)
-        .set_bit(6, true);
     unsafe {
-        let gp = 0xCC00_8000 as *mut u32;
-        gp.write_volatile(0x61);
-        gp.write_volatile(ctrl);
+        (0xCC00_8000 as *mut u8).write_volatile(0x61);
+        (0xCC00_8000 as *mut u32).write_volatile(0x4800_FEED);
+        (0xCC00_8000 as *mut u8).write_volatile(0x61);
+        (0xCC00_8000 as *mut u32).write_volatile(0x4700_DEAD);
 
         for _ in 0..8 {
-            gp.write_volatile(0x0);
+            (0xCC00_8000 as *mut u32).write_volatile(0x0);
         }
-    }
+    };
 
     println!("Hello, world!");
 
-    let data = Reader::new(isfs::read("/shared2/sys/SYSCONF").unwrap()).unwrap();
-
-    for name in data.items() {
-        println!("Found data: {name:?}");
-    }
-
-    println!("{:?}", data.find("IPL.PGS"));
-
-    println!("{:?}", video::get_video_format());
     let mut vi = VideoSystem::new(ViFramebuffer::new(640, 480));
     let write_ptr = vi.framebuffer.data.as_mut_ptr().cast::<u16>();
     let _sram = ExternalInterface::get_sram();
-    let pad = Pad::init(SiChannel::Zero).unwrap();
+
+    fifo.set_copy_clear([255, 255, 255, 255], 0x00_FF_FF_FF);
+
+    fifo.set_viewport(
+        0.0,
+        0.0,
+        vi.framebuffer.width as f32,
+        vi.framebuffer.height as f32,
+        0.0,
+        1.0,
+    );
+
+    fifo.set_y_scale(1.);
+
+    fifo.set_scissor(
+        0,
+        0,
+        vi.framebuffer.width.try_into().unwrap(),
+        vi.framebuffer.height.try_into().unwrap(),
+    );
+
+    fifo.set_copy_display_source(0, 0, vi.framebuffer.width, vi.framebuffer.height);
+    fifo.set_copy_display_destination(&vi.framebuffer);
+
+    fifo.set_copy_filter_default();
+    // fifo.set_su_lpsize(6, 6, 0, 0, false);
+    //fifo.set_gen_mode(1, 1, false, 1, 0, 0, 0);
+
+    let mut sd_card = SDCard::new().expect("Couldn't open sd_card");
+    let sectors = [0u8; 512];
+    let _resp = sd_card.read_sectors(0, &mut [sectors]).unwrap();
+    let _resp = sd_card.num_bytes().unwrap();
+
+    println!("Sector read: {:?}", sectors);
+    println!(
+        "Resp: {:X}, {:X}, {:X}, {:X}",
+        _resp[0], _resp[1], _resp[2], _resp[3]
+    );
 
     'main_loop: loop {
         let status = pad.read();
@@ -149,5 +177,5 @@ pub unsafe extern "C" fn abort() -> ! {
         };
         func()
     }
-    panic!()
+    main();
 }
