@@ -1,7 +1,8 @@
-use core::ops::Sub;
+use core::{ops::Sub, time::Duration};
 
 use bit_field::BitField;
 
+#[derive(Copy, Clone)]
 pub struct Instant {
     pub ticks: u64,
 }
@@ -21,8 +22,8 @@ impl Instant {
             );
         }
 
-        instant.set_bits(0..=31, time2.into());
-        instant.set_bits(32..=63, time1.into());
+        instant.set_bits(0..32, time2.into());
+        instant.set_bits(32..64, time1.into());
 
         Self { ticks: instant }
     }
@@ -46,6 +47,14 @@ impl Instant {
     pub(crate) const fn from_ticks(ticks: u64) -> Self {
         Self { ticks }
     }
+
+    pub fn duration_since(&self, earlier: Instant) -> Duration {
+        Duration::from_nanos((*self - earlier).nanosecs())
+    }
+
+    pub fn elapsed(&self) -> Duration {
+        Duration::from_nanos((Instant::now() - *self).nanosecs())
+    }
 }
 
 impl Sub for Instant {
@@ -55,9 +64,16 @@ impl Sub for Instant {
     }
 }
 
+impl Sub for &Instant {
+    type Output = Instant;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Instant::from_ticks(self.ticks - rhs.ticks)
+    }
+}
+
 pub fn set_time(time: u64) {
-    let time_upper: u32 = time.get_bits(32..=63).try_into().unwrap();
-    let time_lower: u32 = time.get_bits(0..=31).try_into().unwrap();
+    let time_upper: u32 = time.get_bits(32..64).try_into().unwrap();
+    let time_lower: u32 = time.get_bits(0..32).try_into().unwrap();
     unsafe {
         core::arch::asm!(
             "mttbu {time_upper}",
