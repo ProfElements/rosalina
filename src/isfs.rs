@@ -9,8 +9,11 @@ pub fn read(path: impl AsRef<str>) -> Result<Vec<u8>, Error> {
     let mut file = open(path.as_ref())?;
     let size = file.metadata().map(|m| m.len()).unwrap_or(0);
     let mut bytes = vec![0u8; size];
-    file.read(&mut bytes);
-    Ok(bytes)
+    if file.read(&mut bytes).is_ok() {
+        Ok(bytes)
+    } else {
+        Err(file.read(&mut bytes).unwrap_err())
+    }
 }
 /// # Errors
 /// any related Ios errors see `ios::Error`
