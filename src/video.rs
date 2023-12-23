@@ -2,7 +2,6 @@ use crate::{
     config::{ConfData, Config, Reader},
     isfs,
     mmio::vi::{VideoFormat, ViselDTV},
-    println,
 };
 
 pub fn get_video_format() -> Option<VideoFormat> {
@@ -16,7 +15,6 @@ pub fn get_video_format() -> Option<VideoFormat> {
 
     for line in text.lines() {
         if let Some(char) = line.find("VIDEO=") {
-            println!("{}", &line[char + 6..]);
             return match line[char + 6..].trim() {
                 "NTSC" => Some(VideoFormat::Ntsc),
                 "PAL" => Some(VideoFormat::Pal),
