@@ -1,5 +1,10 @@
 use core::{mem::MaybeUninit, ptr::slice_from_raw_parts_mut};
 
+use crate::arch::{
+    BlockLength, HID0Flags as HID0, HID2Flags, HID4Flags, LBATFlags, MSRFlags,
+    MemoryProtectionParts, UBATFlags as BATFlags,
+};
+
 use crate::os::LinkerSymbol;
 
 #[no_mangle]
@@ -42,11 +47,12 @@ unsafe extern "C" fn __init_bats() -> ! {
 #[naked]
 unsafe extern "C" fn __config_bats() -> ! {
     core::arch::asm!(
-        "lis 3,0x0011",
-        "ori 3,3,0x0c64",
+        "lis 3,{hid0_flags}@h",
+        "ori 3,3,{hid0_flags}@l",
         "mtspr {HID0},3",
         "isync",
-        "lis 3,0x8200",
+        "lis 3,{hid4_flags}@h",
+        "ori 3,3,{hid4_flags}@l",
         "mtspr {HID4},3",
         "isync",
         "li 0,0",
@@ -67,6 +73,7 @@ unsafe extern "C" fn __config_bats() -> ! {
         "mtspr {DBAT6U},0",
         "mtspr {DBAT7U},0",
         "isync",
+        "sync",
         "lis 0,0x8000",
         "mtsr 0,0",
         "mtsr 1,0",
@@ -85,34 +92,45 @@ unsafe extern "C" fn __config_bats() -> ! {
         "mtsr 14,0",
         "mtsr 15,0",
         "isync",
-        "li 3,2",
-        "lis 4,0x8000",
-        "ori 4,4,0x1FFF",
+        "sync",
+        "lis 3,{lbat0_flags}@h",
+        "ori 3,3,{lbat0_flags}@l",
+        "lis 4,{ubat0_flags}@h",
+        "ori 4,4,{ubat0_flags}@l",
         "mtspr {IBAT0L},3",
         "mtspr {IBAT0U},4",
         "mtspr {DBAT0L},3",
         "mtspr {DBAT0U},4",
         "isync",
-        "addis 3,3,0x1000",
-        "addis 4,4,0x1000",
+        "sync",
+        "lis 3,{lbat4_flags}@h",
+        "ori 3,3,{lbat4_flags}@l",
+        "lis 4,{ubat4_flags}@h",
+        "ori 4,4,{ubat4_flags}@l",
         "mtspr {IBAT4L},3",
         "mtspr {IBAT4U},4",
         "mtspr {DBAT4L},3",
         "mtspr {DBAT4U},4",
         "isync",
-        "li 3,0x2a",
-        "lis 4,0xC000",
-        "ori 4,4,0x1FFF",
+        "sync",
+        "lis 3,{lbat1_flags}@h",
+        "ori 3,3,{lbat1_flags}@l",
+        "lis 4,{ubat1_flags}@h",
+        "ori 4,4,{ubat1_flags}@l",
         "mtspr {DBAT1L},3",
         "mtspr {DBAT1U},4",
         "isync",
-        "addis 3,3,0x1000",
-        "addis 4,4,0x1000",
+        "sync",
+        "lis 3,{lbat5_flags}@h",
+        "ori 3,3,{lbat5_flags}@l",
+        "lis 4,{ubat5_flags}@h",
+        "ori 4,4,{ubat5_flags}@l",
         "mtspr {DBAT5L},3",
         "mtspr {DBAT5U},4",
         "isync",
+        "sync",
         "mfmsr 3",
-        "ori 3,3,{MSR_DR}|{MSR_IR}",
+        "ori 3,3,{msr_flags}",
         "mtsrr1 3",
         "mflr 3",
         "oris 3,3,0x8000",
@@ -142,10 +160,95 @@ unsafe extern "C" fn __config_bats() -> ! {
         DBAT4L = const 569,
         DBAT1L = const 539,
         DBAT5L = const 571,
-        MSR_DR = const 0x10,
-        MSR_IR = const 0x20,
+        msr_flags = const MSRFlags::IR.bits() | MSRFlags::DR.bits(),
+        hid0_flags = const hid0_flags(),
+        hid4_flags = const HID4Flags::H4A.bits() | HID4Flags::SBE.bits(),
+        ubat0_flags = const ubat0_flags(),
+        lbat0_flags = const lbat0_flags(),
+        ubat4_flags = const ubat4_flags(),
+        lbat4_flags = const lbat4_flags(),
+        ubat1_flags = const ubat1_flags(),
+        lbat1_flags = const lbat1_flags(),
+        ubat5_flags = const ubat5_flags(),
+        lbat5_flags = const lbat5_flags(),
         options(noreturn)
     )
+}
+
+pub const fn hid0_flags() -> u32 {
+    HID0::DCFI.bits()
+        | HID0::ICFI.bits()
+        | HID0::NHR.bits()
+        | HID0::DCFA.bits()
+        | HID0::BTIC.bits()
+        | HID0::BHT.bits()
+        | HID0::DPM.bits()
+}
+
+pub const fn ubat0_flags() -> u32 {
+    BATFlags::empty()
+        .with_block_length(BlockLength::MBytes256)
+        .with_block_effective_page_index(0x8000)
+        .bits()
+        | BATFlags::VP.bits()
+        | BATFlags::VS.bits()
+}
+
+pub const fn lbat0_flags() -> u32 {
+    LBATFlags::empty()
+        .with_memory_protection_parts(MemoryProtectionParts::ReadWrite)
+        .bits()
+}
+
+pub const fn ubat4_flags() -> u32 {
+    BATFlags::empty()
+        .with_block_length(BlockLength::MBytes256)
+        .with_block_effective_page_index(0x9000)
+        .bits()
+        | BATFlags::VP.bits()
+        | BATFlags::VS.bits()
+}
+
+pub const fn lbat4_flags() -> u32 {
+    LBATFlags::empty()
+        .with_memory_protection_parts(MemoryProtectionParts::ReadWrite)
+        .with_block_physical_number(0x1000)
+        .bits()
+}
+
+pub const fn ubat1_flags() -> u32 {
+    BATFlags::empty()
+        .with_block_length(BlockLength::MBytes256)
+        .with_block_effective_page_index(0xC000)
+        .bits()
+        | BATFlags::VP.bits()
+        | BATFlags::VS.bits()
+}
+
+pub const fn lbat1_flags() -> u32 {
+    LBATFlags::empty()
+        .with_memory_protection_parts(MemoryProtectionParts::ReadWrite)
+        .bits()
+        | LBATFlags::I.bits()
+        | LBATFlags::G.bits()
+}
+
+pub const fn ubat5_flags() -> u32 {
+    BATFlags::empty()
+        .with_block_length(BlockLength::MBytes256)
+        .with_block_effective_page_index(0xD000)
+        .bits()
+        | BATFlags::VP.bits()
+        | BATFlags::VS.bits()
+}
+
+pub const fn lbat5_flags() -> u32 {
+    LBATFlags::empty()
+        .with_memory_protection_parts(MemoryProtectionParts::ReadWrite)
+        .with_block_physical_number(0x1000)
+        .bits()
+        | LBATFlags::I.bits()
+        | LBATFlags::G.bits()
 }
 
 #[no_mangle]
@@ -223,7 +326,7 @@ unsafe extern "C" fn __init_hardware() -> ! {
         "bl {__init_cache}",
         "mtlr 31",
         "blr",
-        MSR_FP = const 0x2000,
+        MSR_FP = const MSRFlags::FP.bits(),
         __init_ps = sym __init_ps,
         __init_fprs = sym __init_fprs,
         __init_cache = sym crate::cache::__init_cache,
@@ -239,7 +342,7 @@ unsafe extern "C" fn __init_ps() -> ! {
         "stw 0,4(1)",
         "stwu 1,-8(1)",
         "mfspr 3,{HID2}",
-        "oris 3,3,0xA000",
+        "oris 3,3,{hid2_flags}@h",
         "mtspr {HID2},3",
         "isync",
         "bl {ic_flash_invalidate}",
@@ -267,6 +370,7 @@ unsafe extern "C" fn __init_ps() -> ! {
         GQR5 = const 917,
         GQR6 = const 918,
         GQR7 = const 919,
+        hid2_flags = const HID2Flags::PSE.bits(),
         ic_flash_invalidate = sym crate::cache::ic_flash_invalidate,
         options(noreturn)
     )
@@ -336,7 +440,7 @@ unsafe extern "C" fn __init_system() -> ! {
         "stmw 29,-24(1)",
         "mfmsr 3",
         "rlwinm 4,3,0,17,15",
-        "rlwinm 3,4,0,26,24",
+        "rlwinm 4,4,0,26,24",
         "mtmsr 4",
         "li 3,0",
         "mtspr {MMCR0},3",
@@ -347,11 +451,11 @@ unsafe extern "C" fn __init_system() -> ! {
         "mtspr {PMC4},3",
         "isync",
         "mfspr 3,{HID4}",
-        "ori 3,3,0x190",
+        "oris 3,3,{hid4_flags}@h",
         "mtspr {HID4},3",
         "isync",
         "mfspr 3,{HID0}",
-        "ori 3,3,0x200",
+        "ori 3,3,{hid0_flags}",
         "mtspr {HID0},3",
         "isync",
         "mtfsb1 29",
@@ -373,7 +477,8 @@ unsafe extern "C" fn __init_system() -> ! {
         PMC2 = const 954,
         PMC3 = const 957,
         PMC4 = const 958,
-
+        hid4_flags = const HID4Flags::L2_CCFI.bits() | HID4Flags::PS1_CTL.bits() | HID4Flags::PS2_CTL.bits(),
+        hid0_flags = const HID0::SPD.bits(),
         options(noreturn)
     )
 }
