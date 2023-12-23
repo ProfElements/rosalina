@@ -350,3 +350,189 @@ impl MachineStateRegister {
         self
     }
 }
+
+bitflags::bitflags! {
+    pub struct HID0Flags: u32 {
+        const NOOPTI = 1 << 0;
+        ///Branch History Table Enable
+        const BHT = 1 << 2;
+        const ABE = 1 << 3;
+        /// Branch Target Instruction Cache Enable
+        const BTIC = 1 << 5;
+        /// Data Cache Flush Assist Enable
+        const DCFA = 1 << 6;
+        const SGE = 1 << 7;
+        const IFEM = 1 << 8;
+        const SPD = 1 << 9;
+        /// Data Cache Flash Invalidate
+        const DCFI = 1 << 10;
+        /// Instruction Cache Flash Invalidate
+        const ICFI = 1 << 11;
+        /// Data Cache Lock
+        const DLOCK = 1 << 12;
+        /// Instruction Cache Lock
+        const ILOCK = 1 << 13;
+        /// Data Cache Enable
+        const DCE = 1 << 14;
+        /// Instruction Cache Enable
+        const ICE = 1 << 15;
+        /// No Hard Reset
+        const NHR = 1 << 16;
+        ///Dynamic Power Management
+        const DPM = 1 << 20;
+        const SLEEP = 1 << 21;
+        const NAP = 1 << 22;
+        const DOZE = 1 << 23;
+        const PAR = 1 << 24;
+        const ECLK = 1 << 25;
+        const BCLK = 1 << 27;
+        const EBD = 1 << 28;
+        const EBA = 1 << 29;
+        const DBP = 1 << 30;
+        const EMCP = 1 << 31;
+    }
+}
+
+bitflags::bitflags! {
+    pub struct HID2Flags: u32 {
+        /// Write Gather Pipe Enable
+        const WPE = 1 << 30;
+        /// Paired Single Enable
+        const PSE = 1 << 29;
+        /// Locked Cache Enable
+        const LCE = 1 << 28;
+        //DMAQL (DMA Queue Length) 27:24
+        /// DMA Cache Hit Error
+        const DCHERR = 1 << 23;
+        /// DMA Normal Cache Error
+        const DNCERR = 1 << 22;
+        /// DMA Cache Miss Error
+        const DMCERR = 1 << 21;
+        /// DMA Queue Overflow Error
+        const DQOERR = 1 << 20;
+        // DMA Cache Hit Error Enable
+        const DCHEE = 1 << 19;
+        /// DMA Cache Miss Error Enable
+        const DCMEE = 1 << 18;
+        /// DMA Queue Overflow Error Enable
+        const DQOEE = 1 << 17;
+    }
+}
+
+bitflags::bitflags! {
+    pub struct HID4Flags: u32 {
+        /// HID4 Access
+        const H4A = 1 << 31;
+        //L2FM (L2 Fetch Mode) 30:29
+        //BPD (Bus Pipeline Depth) 28:27
+        /// L2 Second Castout Buffer Enable
+        const BCO = 1 << 26;
+        /// Secondary Bat Enable
+        const SBE = 1 << 25;
+        //Paired Single 1 Control
+        const PS1_CTL = 1 << 24;
+        /// Data Bus Parking
+        const DBP = 1 << 22;
+        /// L2 Miss under Miss Enable
+        const L2MUM = 1 << 21;
+        //L2 Complete Castout Flash Invalidate
+        const L2_CCFI = 1 << 20;
+        //Paired Single 2 Control
+        const PS2_CTL = 1 << 19;
+    }
+}
+
+bitflags::bitflags! {
+    pub struct UBATFlags: u32 {
+        const VP = 1 << 0;
+        const VS = 1 << 1;
+        // BL (Block Length) 2:12
+        // BEPI (Block Effective Page Index) 31:17
+    }
+}
+
+impl UBATFlags {
+    pub const fn with_block_effective_page_index(self, bepi: u32) -> Self {
+        Self::from_bits_retain(bitfrob::u32_with_value(16, 31, self.bits(), bepi))
+    }
+
+    pub const fn with_block_length(self, bl: BlockLength) -> Self {
+        Self::from_bits_retain(bitfrob::u32_with_value(2, 12, self.bits(), bl as u32))
+    }
+}
+
+#[repr(u32)]
+pub enum BlockLength {
+    KBytes128 = 0,
+    Kbytes256 = 0b000_0000_0001,
+    KBytes512 = 0b000_0000_0011,
+    MBytes1 = 0b000_0000_0111,
+    MBytes2 = 0b000_0000_1111,
+    MBytes4 = 0b000_0001_1111,
+    MBytes8 = 0b000_0011_1111,
+    MBytes16 = 0b000_0111_1111,
+    MBytes32 = 0b000_1111_1111,
+    MBytes64 = 0b001_1111_1111,
+    MBytes128 = 0b011_1111_1111,
+    MBytes256 = 0b111_1111_1111,
+}
+
+impl From<BlockLength> for u32 {
+    fn from(value: BlockLength) -> Self {
+        value as u32
+    }
+}
+
+bitflags::bitflags! {
+    pub struct LBATFlags: u32 {
+        // PP (Memory Protection Parts) 0:1
+        const G = 1 << 3;
+        const M = 1 << 4;
+        const I = 1 << 5;
+        const W = 1 << 6;
+        // BRPN (Block Physical Retain Numbers) 31:16
+    }
+}
+
+impl LBATFlags {
+    pub const fn with_memory_protection_parts(self, pp: MemoryProtectionParts) -> Self {
+        Self::from_bits_retain(bitfrob::u32_with_value(0, 1, self.bits(), pp as u32))
+    }
+
+    pub const fn with_block_physical_number(self, brpn: u32) -> Self {
+        Self::from_bits_retain(bitfrob::u32_with_value(16, 31, self.bits(), brpn))
+    }
+}
+
+#[repr(u32)]
+pub enum MemoryProtectionParts {
+    None = 0b00,
+    Read = 0b01,
+    ReadWrite = 0b10,
+}
+
+impl From<MemoryProtectionParts> for u32 {
+    fn from(value: MemoryProtectionParts) -> Self {
+        value as u32
+    }
+}
+
+bitflags::bitflags! {
+    pub struct MSRFlags: u32 {
+        const LE = 1 << 0;
+        const RI = 1 << 1;
+        const DR = 1 << 4;
+        const IR = 1 << 5;
+        const IP = 1 << 6;
+        const FE1 = 1 << 8;
+        const BE = 1 << 9;
+        const SE = 1 << 10;
+        const FE0 = 1 << 11;
+        const ME = 1 << 12;
+        const FP = 1 << 13;
+        const PR = 1 << 14;
+        const EE = 1 << 15;
+        const ILE = 1 << 16;
+        const POW = 1 << 18;
+    }
+}
