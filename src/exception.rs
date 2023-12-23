@@ -677,7 +677,7 @@ pub unsafe extern "C" fn de_exception_handler() -> ! {
         "lwz 3,12(4)",
         "mfsprg 4,3",
         "rfi",
-        DEFAULT_EXCEPTION_HANDLER = sym def_exception_handler,
+       DEFAULT_EXCEPTION_HANDLER = sym def_exception_handler,
         CONTEXT = sym EXCEPTION_CONTEXT,
         options(noreturn)
     )
@@ -686,7 +686,6 @@ pub unsafe extern "C" fn de_exception_handler() -> ! {
 /// # Safety
 ///
 /// Must be provided a valid `exception_addr`, and a valid and nonnull Context
-#[no_mangle]
 pub unsafe extern "C" fn def_exception_handler(exception_addr: usize, context: *const Context) {
     interrupts::disable();
     if let Some(exception) = Exception::from_addr(exception_addr + 0x8000_0000) {
