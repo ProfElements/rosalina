@@ -1,3 +1,5 @@
+use bytemuck::{bytes_of_mut, Pod};
+
 use self::internal::IosFileDesc;
 
 pub enum FileAccessMode {
@@ -72,8 +74,11 @@ impl Ios {
         Ok(Self { fd: file })
     }
 
-    pub fn read(&mut self, buf: &mut [u8]) -> usize {
-        self.fd.read(buf).unwrap()
+    #[track_caller]
+    /// # Errors
+    /// See `Error`
+    pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+        self.fd.read(buf)
     }
 
     pub fn fd(&self) -> usize {
@@ -83,10 +88,48 @@ impl Ios {
     /// Any related IOS errors see `Error`
     pub fn metadata(&self) -> Result<Metadata, Error> {
         let mut metadata = Metadata::new();
-        self.fd.ioctl(11, &[], &mut metadata)?;
+        self.fd.ioctl(11, &(), &mut metadata)?;
         crate::println!("{:?}", metadata);
 
         Ok(metadata)
+    }
+
+    pub fn ioctl<I, O>(&mut self, ioctl: u32, input: &I, output: &mut O) -> Result<(), Error> {
+        self.fd.ioctl(ioctl.try_into().unwrap(), input, output)?;
+        Ok(())
+    }
+
+    pub fn ioctlv(
+        &mut self,
+        ioctl: u32,
+        count_in: u32,
+        count_out: u32,
+        iovecs_out: &mut [IoVec],
+    ) -> Result<(), Error> {
+        self.fd.ioctlv(
+            ioctl.try_into().unwrap(),
+            count_in.try_into().unwrap(),
+            count_out.try_into().unwrap(),
+            iovecs_out,
+        )?;
+        Ok(())
+    }
+}
+
+pub struct IoVec<'a> {
+    pub ptr: &'a mut u8,
+    pub len: usize,
+}
+
+impl<'a> IoVec<'a> {
+    pub fn new<T: Pod>(data: &'a mut T) -> Self {
+        let bytes = bytes_of_mut(data);
+        let bytes_len = bytes.len();
+        let bytes_ptr = unsafe { bytes.as_mut_ptr().as_mut().unwrap() };
+        Self {
+            ptr: bytes_ptr,
+            len: bytes_len,
+        }
     }
 }
 
@@ -94,9 +137,9 @@ mod internal {
 
     use alloc::ffi::CString;
 
-    use crate::ipc::{ios_close, ios_ioctl, ios_open, ios_read};
+    use crate::ipc::{ios_close, ios_ioctl, ios_ioctlv, ios_open, ios_read};
 
-    use super::{Error, FileAccessMode};
+    use super::{Error, FileAccessMode, IoVec};
 
     type IosRawFd = isize;
 
@@ -198,7 +241,7 @@ mod internal {
                     }
                 }
         */
-        pub fn ioctl<T>(&self, ioctl: usize, buf_in: &[u8], buf_out: &mut T) -> Result<(), Error> {
+        pub fn ioctl<I, O>(&self, ioctl: usize, buf_in: &I, buf_out: &mut O) -> Result<(), Error> {
             match ios_ioctl(self.0.fd, ioctl, buf_in, buf_out) {
                 -1 | -102 => Err(Error::PermissionDenied),
                 -2 | -105 => Err(Error::FileExists),
@@ -216,14 +259,15 @@ mod internal {
                 _ => Ok(()),
             }
         }
-        /*
+
         pub fn ioctlv(
             &self,
             ioctl: usize,
-            buf_in: &[&[u8]],
-            buf_out: &[&[u8]],
+            count_in: usize,
+            count_out: usize,
+            buf_out: &mut [IoVec],
         ) -> Result<(), Error> {
-            match ios_ioctlv(ioctl, buf_in, buf_out) {
+            match ios_ioctlv(self.0.fd, ioctl, count_in, count_out, buf_out) {
                 -1 | -102 => Err(Error::PermissionDenied),
                 -2 | -105 => Err(Error::FileExists),
                 -4 | -101 => Err(Error::InvalidArg),
@@ -240,6 +284,5 @@ mod internal {
                 _ => Ok(()),
             }
         }
-        */
     }
 }

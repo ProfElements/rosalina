@@ -1,5 +1,5 @@
 use core::{
-    fmt::Write,
+    mem::ManuallyDrop,
     ptr::{from_exposed_addr, from_exposed_addr_mut},
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -8,13 +8,14 @@ use alloc::{boxed::Box, ffi::CString};
 
 use crate::{
     cache::{dc_flush_range, dc_invalidate_range},
+    clock::Instant,
     interrupts::Interrupt,
+    ios::IoVec,
     mmio::{
         ipc::{IpcControl, IpcInterruptFlags, IpcRequestAddr},
         pi::{InterruptMask, InterruptState, Mask},
         Physical,
     },
-    DOLPHIN_HLE,
 };
 
 static REQ_MAGIC: AtomicUsize = AtomicUsize::new(0);
@@ -59,10 +60,10 @@ impl Ipc {
 
                 let req_ref = unsafe { request.as_ref().unwrap() };
                 if req_ref.magic == REQ_MAGIC.load(Ordering::Relaxed) {
-                    if let Ok(cmd) = IPCCommand::try_from(req_ref.cmd) {
+                    if let Ok(cmd) = IPCCommand::try_from(req_ref.fd as usize) {
                         match cmd {
                             IPCCommand::Open => todo!(),
-                            IPCCommand::Close => todo!(),
+                            IPCCommand::Close => (),
                             IPCCommand::Read => todo!(),
                             IPCCommand::Write => todo!(),
                             IPCCommand::Seek => todo!(),
@@ -184,16 +185,16 @@ impl From<IPCCommand> for usize {
     }
 }
 
-pub fn ios_ioctl<T>(fd: isize, ioctl: usize, buffer_in: &[u8], data_out: &mut T) -> isize {
+pub fn ios_ioctl<I, O>(fd: isize, ioctl: usize, buffer_in: &I, data_out: &mut O) -> isize {
     let request = Box::leak(Box::new(IpcRequest::new()));
 
     request.cmd = usize::from(IPCCommand::Ioctl);
     request.fd = fd;
     request.args[0] = ioctl;
-    request.args[1] = Physical::new(buffer_in.as_ptr().cast_mut()).addr();
-    request.args[2] = buffer_in.len();
+    request.args[1] = Physical::new(core::ptr::from_ref(buffer_in).cast_mut()).addr();
+    request.args[2] = core::mem::size_of_val(buffer_in);
     request.args[3] = Physical::new(data_out).addr();
-    request.args[4] = core::mem::size_of::<T>();
+    request.args[4] = core::mem::size_of_val(data_out);
 
     let request: *mut IpcRequest = request;
     dc_flush_range(request.cast(), core::mem::size_of::<IpcRequest>());
@@ -207,11 +208,21 @@ pub fn ios_ioctl<T>(fd: isize, ioctl: usize, buffer_in: &[u8], data_out: &mut T)
         .with_x1(true)
         .write_ppc();
 
+    let now = Instant::now();
+    while !(IpcControl::read_ppc().y1() && IpcControl::read_ppc().ix1())
+        && Instant::now().millisecs().wrapping_sub(now.millisecs()) < 1000
+    {
+        core::hint::spin_loop();
+    }
+
+    dc_flush_range(request.cast::<u8>(), core::mem::size_of::<IpcRequest>());
     //SKETCHY CHECK IF STILL IN PHYSICAL SPACE
     unsafe { (*request).result }
 }
 
 pub fn ios_open(file_path: CString, mode: usize) -> isize {
+    ios_open_alt(file_path, u32::try_from(mode).unwrap())
+    /*
     let request = Box::leak(Box::new(IpcRequest::new()));
 
     request.cmd = usize::from(IPCCommand::Open);
@@ -240,6 +251,7 @@ pub fn ios_open(file_path: CString, mode: usize) -> isize {
         let _str = CString::from_raw(raw);
         (*request).result
     }
+    */
 }
 pub fn ios_close(fd: isize) {
     let request = Box::leak(Box::new(IpcRequest::new()));
@@ -356,4 +368,107 @@ impl Default for IpcRequest {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn ios_open_alt(file_name: CString, mode: u32) -> isize {
+    let request = Box::leak(Box::new(IpcRequest::new()));
+    let file_name = ManuallyDrop::new(file_name);
+    let file_path = file_name.as_bytes_with_nul().as_ptr();
+
+    request.cmd = usize::from(IPCCommand::Open);
+    request.callback_addr = None;
+    request.callback_data = 0;
+    request.relauch = 0;
+
+    dc_flush_range(file_path.cast::<u8>(), file_name.as_bytes_with_nul().len());
+
+    request.args[0] = file_path.map_addr(|addr| addr - 0x8000_0000).addr();
+
+    request.args[1] = mode as usize;
+
+    dc_flush_range(
+        core::ptr::from_ref(request).cast::<u8>(),
+        core::mem::size_of::<IpcRequest>(),
+    );
+
+    IpcRequestAddr::new()
+        .with_addr(
+            core::ptr::from_ref(request)
+                .map_addr(|addr| addr - 0x8000_0000)
+                .addr(),
+        )
+        .write_ppc();
+
+    IpcControl::new()
+        .with_ix1(IpcControl::read_ppc().ix1())
+        .with_ix2(IpcControl::read_ppc().ix2())
+        .with_x1(true)
+        .write_ppc();
+
+    let now = Instant::now();
+    while !(IpcControl::read_ppc().y1() && IpcControl::read_ppc().ix1())
+        && Instant::now().millisecs() - now.millisecs() < 1000
+    {
+        core::hint::spin_loop();
+    }
+
+    dc_flush_range(
+        core::ptr::from_ref(request).cast::<u8>(),
+        core::mem::size_of::<IpcRequest>(),
+    );
+
+    request.result
+}
+
+pub fn ios_ioctlv(
+    fd: isize,
+    ioctl: usize,
+    count_in: usize,
+    count_out: usize,
+    iovecs: &mut [IoVec],
+) -> isize {
+    let request = Box::leak(Box::new(IpcRequest::new()));
+
+    request.cmd = usize::from(IPCCommand::Ioctlv);
+    request.fd = fd;
+    request.relauch = 0;
+
+    request.args[0] = ioctl;
+    request.args[1] = count_in;
+    request.args[2] = count_out;
+    request.args[3] = Physical::new(iovecs.as_mut_ptr()).addr();
+
+    dc_flush_range(
+        iovecs.as_mut_ptr().cast::<u8>(),
+        core::mem::size_of_val(iovecs),
+    );
+
+    dc_flush_range(
+        core::ptr::from_ref(request).cast::<u8>(),
+        core::mem::size_of::<IpcRequest>(),
+    );
+
+    IpcRequestAddr::new()
+        .with_addr(Physical::new(core::ptr::from_mut(request)).addr())
+        .write_ppc();
+
+    IpcControl::new()
+        .with_ix1(IpcControl::read_ppc().ix1())
+        .with_ix2(IpcControl::read_ppc().ix2())
+        .with_x1(true)
+        .write_ppc();
+
+    let now = Instant::now();
+    while !(IpcControl::read_ppc().y1() && IpcControl::read_ppc().ix1())
+        && Instant::now().millisecs().wrapping_sub(now.millisecs()) < 1000
+    {
+        core::hint::spin_loop();
+    }
+
+    dc_flush_range(
+        core::ptr::from_ref(request).cast::<u8>(),
+        core::mem::size_of::<IpcRequest>(),
+    );
+
+    request.result
 }
