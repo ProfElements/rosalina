@@ -6,6 +6,12 @@ const WRITER_GATHER_PIPE_U8: VolAddress<u8, (), Safe> = unsafe { VolAddress::new
 const WRITER_GATHER_PIPE_U32: VolAddress<u32, (), Safe> = unsafe { VolAddress::new(0xCC00_8000) };
 const WRITE_GATHER_PIPE_F32: VolAddress<f32, (), Safe> = unsafe { VolAddress::new(0xCC00_8000) };
 
+impl Default for WriteGatherPipe {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WriteGatherPipe {
     pub fn new() -> Self {
         Self

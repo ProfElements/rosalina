@@ -7,7 +7,8 @@ pub const BASE: usize = 0xCC00_3000;
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct InterruptCause(u32);
 
-pub const INTERRUPT_CAUSE: VolAddress<InterruptCause, Safe, ()> = unsafe { VolAddress::new(BASE) };
+pub const INTERRUPT_CAUSE: VolAddress<InterruptCause, Safe, Safe> =
+    unsafe { VolAddress::new(BASE) };
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum InterruptState {
@@ -68,6 +69,10 @@ impl InterruptCause {
         INTERRUPT_CAUSE.read()
     }
 
+    pub fn write(self) {
+        INTERRUPT_CAUSE.write(self);
+    }
+
     pub fn gp_runtime_error(&self) -> InterruptState {
         self.0.get_bit(0).into()
     }
@@ -126,6 +131,11 @@ impl InterruptCause {
 
     pub fn interprocess_control(&self) -> InterruptState {
         self.0.get_bit(14).into()
+    }
+
+    pub fn with_interprocess_control(mut self, ipc: InterruptState) -> Self {
+        self.0 = bitfrob::u32_with_bit(14, self.0, ipc.into());
+        self
     }
 
     pub fn reset_state(&self) -> ResetSwitchState {

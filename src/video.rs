@@ -31,26 +31,24 @@ pub fn has_component_cable() -> bool {
 }
 
 pub fn has_progressive_scan() -> bool {
-    match Reader::new(isfs::read("/shared2/sys/SYSCONF").unwrap())
+    if let Some((_, ConfData::U8(data))) = Reader::new(isfs::read("/shared2/sys/SYSCONF").unwrap())
         .unwrap()
         .find("IPL.PGS")
-        .unwrap()
-        .1
     {
-        ConfData::U8(data) => data != 0,
-        _ => panic!(),
+        data != 0
+    } else {
+        panic!()
     }
 }
 
 pub fn has_eurgb60() -> bool {
-    match Reader::new(isfs::read("/shared2/sys/SYSCONF").unwrap())
+    if let Some((_, ConfData::U8(data))) = Reader::new(isfs::read("/shared2/sys/SYSCONF").unwrap())
         .unwrap()
         .find("IPL.E60")
-        .unwrap()
-        .1
     {
-        ConfData::U8(data) => data != 0,
-        _ => panic!(),
+        data != 0
+    } else {
+        panic!()
     }
 }
 

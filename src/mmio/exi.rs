@@ -468,7 +468,7 @@ impl ExiControl {
             length < 5 && length > 0,
             "DMA length must be less then 5 and greater then 0"
         );
-        self.0.set_bits(4..=5, (length - 1).try_into().unwrap());
+        self.0.set_bits(4..=5, (length - 1).into());
         self
     }
 }
