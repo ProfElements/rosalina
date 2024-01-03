@@ -237,15 +237,21 @@ impl SDCard {
         let cmd_type = cmd.command_type() as u32;
         let resp_type = cmd.response_type() as u32;
 
-        IpcRequest::ioctl(
+        let mut req = IpcRequest::ioctl(
             self.sd0_fd,
             IOCTL_SEND_SDIO_CMD,
             Box::new([cmd_u32, cmd_type, resp_type, arg, 0, 0, 0, 0, 0]),
             Box::new([0u32; 4]),
         )
-        .send()?
-        .take_output::<[u32; 4]>()
-        .map_or_else(
+        .send()?;
+
+        unsafe {
+            let _ = Box::from_raw(from_exposed_addr_mut::<[u32; 9]>(
+                (req.args[1] | 0x8000_0000).try_into().unwrap(),
+            ));
+        }
+
+        req.take_output::<[u32; 4]>().map_or_else(
             || {
                 Err(IpcError::Other(
                     "response was not able to be take from ipc request",
