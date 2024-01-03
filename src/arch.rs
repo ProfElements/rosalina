@@ -479,7 +479,7 @@ pub enum BlockLength {
 
 impl From<BlockLength> for u32 {
     fn from(value: BlockLength) -> Self {
-        value as u32
+        value as Self
     }
 }
 
@@ -513,7 +513,7 @@ pub enum MemoryProtectionParts {
 
 impl From<MemoryProtectionParts> for u32 {
     fn from(value: MemoryProtectionParts) -> Self {
-        value as u32
+        value as Self
     }
 }
 
