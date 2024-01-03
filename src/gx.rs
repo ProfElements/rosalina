@@ -1,6 +1,5 @@
-use core::{alloc::Layout, num::NonZeroUsize};
+use core::alloc::Layout;
 
-use alloc::vec::Vec;
 use bit_field::BitField;
 
 use crate::{
@@ -16,7 +15,6 @@ use crate::{
         pi::{InterruptMask, InterruptState, Mask, FIFO_BASE, FIFO_END, FIFO_WRITE_PTR},
         vi::Enabled,
     },
-    utils::WriteGatherPipe,
     vi::ViFramebuffer,
 };
 
@@ -329,13 +327,13 @@ impl Fifo {
 
     pub fn set_copy_display_control(
         &mut self,
-        left_right_clamp: u8,
-        top_bottom_clamp: u8,
-        gamma: u8,
-        needs_y_scale: bool,
-        clear_framebuffer: bool,
-        frame_2_field: u8,
-        dest: u8,
+        _left_right_clamp: u8,
+        _top_bottom_clamp: u8,
+        _gamma: u8,
+        _needs_y_scale: bool,
+        _clear_framebuffer: bool,
+        _frame_2_field: u8,
+        _dest: u8,
     ) {
     }
 
@@ -382,7 +380,7 @@ impl Fifo {
         su_lpsize = bitfrob::u32_with_value(8, 15, su_lpsize, point_size.into());
         su_lpsize = bitfrob::u32_with_value(16, 18, su_lpsize, line_offset.into());
         su_lpsize = bitfrob::u32_with_value(19, 21, su_lpsize, point_offset.into());
-        su_lpsize = bitfrob::u32_with_bit(22, su_lpsize, line_aspect_ratio.into());
+        su_lpsize = bitfrob::u32_with_bit(22, su_lpsize, line_aspect_ratio);
         su_lpsize = bitfrob::u32_with_value(24, 31, su_lpsize, 0x22);
 
         unsafe {
