@@ -1,8 +1,15 @@
+use core::ptr::from_exposed_addr_mut;
+
+use alloc::{boxed::Box, ffi::CString};
 use bytemuck::Pod;
 
 use crate::{
     cache::dc_flush_range,
-    ios::{self, FileAccessMode, IoVec, Ios},
+    ios::IoVec,
+    ipc::{
+        rev2::IpcAccessMode,
+        rev2::{IpcError, IpcRequest},
+    },
 };
 
 #[repr(C, align(32))]
@@ -18,29 +25,43 @@ impl<T: Pod> Align32<T> {
 }
 
 pub struct SDCard {
-    sd0_fd: Ios,
+    sd0_fd: u32,
     rca: Option<u32>,
     pub is_sdhc: bool,
 }
 
-type Error = ios::Error;
-
 impl SDCard {
     /// # Errors
-    /// See `ios::Error`
-    pub fn new() -> Result<Self, Error> {
-        let sd0_fd = Ios::open("/dev/sdio/slot0", FileAccessMode::Read)?;
+    /// See `ipc::IpcError`
+    pub fn new() -> Result<Self, IpcError> {
+        let req = IpcRequest::open(
+            CString::new("/dev/sdio/slot0").expect("sd card file name couldn't be constructed"),
+            IpcAccessMode::ReadWrite,
+        )
+        .send()?;
 
+        //Give back CString memory
+        unsafe {
+            let _ = CString::from_raw(from_exposed_addr_mut(
+                (req.args[0] | 0x8000_0000)
+                    .try_into()
+                    .expect("Physical to virtaul address shift didn't work"),
+            ));
+        }
+
+        let fd = req.ret;
         let mut sd_card = Self {
-            sd0_fd,
+            sd0_fd: fd.try_into().unwrap(),
             is_sdhc: false,
             rca: None,
         };
 
-        let _status = sd_card.reset();
-        let _status = sd_card.status();
-        sd_card.set_bus_width(4);
-        sd_card.set_clock(true);
+        let _status = sd_card.reset()?;
+        let _status = sd_card.status()?;
+
+        sd_card.set_bus_width(4)?;
+        sd_card.set_clock(true)?;
+
         sd_card.with_chip_select(|s| {
             s.set_block_length(512);
             s.set_bus_width_inner(4);
@@ -49,63 +70,105 @@ impl SDCard {
         Ok(sd_card)
     }
 
-    fn reset(&mut self) -> u32 {
+    /// # Errors
+    /// See `ipc::IpcError`
+    fn reset(&mut self) -> Result<u32, IpcError> {
         const RESET_CARD: u32 = 4;
-        let mut status = Align32::new(0u32);
-        self.sd0_fd
-            .ioctl(RESET_CARD, &(), &mut status)
-            .expect("SDIO could not be reset");
 
-        self.rca = Some(status.inner >> 16);
-
-        status.inner
-    }
-
-    fn status(&mut self) -> u32 {
-        const GET_STATUS: u32 = 0x0B;
-        let mut status = Align32::new(0u32);
-        self.sd0_fd
-            .ioctl(GET_STATUS, &(), &mut status)
-            .expect("SDIO could not grab card status");
-
-        let stat = status.inner;
-
-        if stat & 0x100_000 > 0 {
-            self.is_sdhc = true;
+        if let Some(status) =
+            IpcRequest::ioctl(self.sd0_fd, RESET_CARD, Box::new(()), Box::new(0u32))
+                .send()?
+                .take_output()
+        {
+            self.rca = Some(*status >> 16);
+            Ok(*status)
+        } else {
+            Err(IpcError::Other(
+                "Status was not able to be taken from the ipc request",
+            ))
         }
-
-        stat
     }
 
-    fn get_host_controller_register(&mut self, reg: u32, size: u32) -> u32 {
+    /// # Errors
+    /// See `ipc::IpcError`
+    fn status(&mut self) -> Result<u32, IpcError> {
+        const GET_STATUS: u32 = 0x0B;
+
+        if let Some(status) =
+            IpcRequest::ioctl(self.sd0_fd, GET_STATUS, Box::new(()), Box::new(0u32))
+                .send()?
+                .take_output::<u32>()
+        {
+            if *status & 0x100_000 == 0 {
+                self.is_sdhc = true;
+            }
+
+            Ok(*status)
+        } else {
+            Err(IpcError::Other(
+                "Status was not able to take from the ipc request",
+            ))
+        }
+    }
+    /// # Errors
+    /// See `ipc::IpcError`
+    fn get_host_controller_register(&mut self, reg: u32, size: u32) -> Result<u32, IpcError> {
         const READ_HC_REG: u32 = 2;
-        let mut hcr_value = Align32::new(0u32);
-        let hcr_query = Align32::new([reg, 0, 0, size, 0, 0]);
-        self.sd0_fd
-            .ioctl(READ_HC_REG, &hcr_query, &mut hcr_value)
-            .expect("SDIO could not grab host controller register value");
 
-        hcr_value.inner
+        IpcRequest::ioctl(
+            self.sd0_fd,
+            READ_HC_REG,
+            Box::new([reg, 0, 0, size, 0, 0]),
+            Box::new(0u32),
+        )
+        .send()?
+        .take_output::<u32>()
+        .map_or_else(
+            || {
+                Err(IpcError::Other(
+                    "HCR was not able to be able to take from the ipc request",
+                ))
+            },
+            |hcr| Ok(*hcr),
+        )
     }
 
-    fn write_host_controller_register(&mut self, reg: u32, size: u32, data: u32) {
+    /// # Errors
+    /// See `ipc::IpcError`
+    fn write_host_controller_register(
+        &mut self,
+        reg: u32,
+        size: u32,
+        data: u32,
+    ) -> Result<(), IpcError> {
         const WRITE_HC_REG: u32 = 1;
-        let hcr_query = Align32::new([reg, 0, 0, size, data, 0]);
-        self.sd0_fd
-            .ioctl(WRITE_HC_REG, &hcr_query, &mut ())
-            .expect("SDIO could not grab host controller register value");
+
+        IpcRequest::ioctl(
+            self.sd0_fd,
+            WRITE_HC_REG,
+            Box::new([reg, 0, 0, size, data, 0]),
+            Box::new(()),
+        )
+        .send()
+        .map(|_| ())
     }
 
-    fn get_host_control(&mut self) -> u32 {
+    /// # Errors
+    /// See `ipc::IpcError`
+    fn get_host_control(&mut self) -> Result<u32, IpcError> {
         self.get_host_controller_register(0x28, 1)
     }
 
-    fn write_host_control(&mut self, size: u32, data: u32) {
-        self.write_host_controller_register(0x28, size, data);
+    /// # Errors
+    /// See `ipc::IpcError`
+    fn write_host_control(&mut self, size: u32, data: u32) -> Result<(), IpcError> {
+        self.write_host_controller_register(0x28, size, data)
     }
 
-    fn set_bus_width(&mut self, bus_width: u32) {
-        let mut hcr = self.get_host_control();
+    /// # Errors
+    /// See `ipc::IpcError`
+    fn set_bus_width(&mut self, bus_width: u32) -> Result<(), IpcError> {
+        let mut hcr = self.get_host_control()?;
 
         hcr &= 0xff;
         hcr &= !0x2;
@@ -114,7 +177,7 @@ impl SDCard {
             hcr |= 0x2;
         }
 
-        self.write_host_control(1, hcr);
+        self.write_host_control(1, hcr)
     }
 
     fn set_bus_width_inner(&mut self, bus_width: u32) {
@@ -128,7 +191,9 @@ impl SDCard {
         .unwrap();
     }
 
-    fn set_clock(&mut self, is_set: bool) {
+    /// # Errors
+    /// See `ipc::IpcError`
+    fn set_clock(&mut self, is_set: bool) -> Result<(), IpcError> {
         const SET_CLK: u32 = 6;
         let clock = if is_set {
             Align32::new(1u32)
@@ -136,18 +201,19 @@ impl SDCard {
             Align32::new(0u32)
         };
 
-        self.sd0_fd
-            .ioctl(SET_CLK, &clock, &mut ())
-            .expect("SDIO could not set clock");
+        IpcRequest::ioctl(self.sd0_fd, SET_CLK, Box::new(clock.inner), Box::new(()))
+            .send()
+            .map(|_| ())
     }
 
     fn select(&mut self) {
         self.card_cmd(SDIOCommand::ToggleSelect, self.rca.unwrap() << 16)
-            .unwrap();
+            .expect("Unable to select sd card");
     }
 
     fn deselect(&mut self) {
-        self.card_cmd(SDIOCommand::ToggleSelect, 0).unwrap();
+        self.card_cmd(SDIOCommand::ToggleSelect, 0)
+            .expect("Unable to deselect sd card");
     }
 
     pub fn with_chip_select<F>(&mut self, func: F)
@@ -164,31 +230,38 @@ impl SDCard {
     }
 
     /// # Errors
-    /// See `ios::Error`
-    pub fn card_cmd(&mut self, cmd: SDIOCommand, arg: u32) -> Result<[u32; 4], Error> {
+    /// See `ipc::IpcError`
+    pub fn card_cmd(&mut self, cmd: SDIOCommand, arg: u32) -> Result<[u32; 4], IpcError> {
         const IOCTL_SEND_SDIO_CMD: u32 = 0x7;
         let cmd_u32: u32 = cmd.as_u32();
         let cmd_type = cmd.command_type() as u32;
         let resp_type = cmd.response_type() as u32;
 
-        let sdio_cmd = Align32::new([cmd_u32, cmd_type, resp_type, arg, 0, 0, 0, 0, 0]);
-
-        let mut sdio_resp = Align32::new([0u32; 4]);
-
-        self.sd0_fd
-            .ioctl(IOCTL_SEND_SDIO_CMD, &sdio_cmd, &mut sdio_resp)?;
-
-        let inner = sdio_resp.inner;
-        println!("{inner:?}");
-
-        Ok(sdio_resp.inner)
+        IpcRequest::ioctl(
+            self.sd0_fd,
+            IOCTL_SEND_SDIO_CMD,
+            Box::new([cmd_u32, cmd_type, resp_type, arg, 0, 0, 0, 0, 0]),
+            Box::new([0u32; 4]),
+        )
+        .send()?
+        .take_output::<[u32; 4]>()
+        .map_or_else(
+            || {
+                Err(IpcError::Other(
+                    "response was not able to be take from ipc request",
+                ))
+            },
+            |response| Ok(*response),
+        )
     }
 
+    /// # Errors
+    /// See `ipc::IpcError`
     pub fn read_sectors(
         &mut self,
         sector_offset: usize,
         sectors: &mut [[u8; 512]],
-    ) -> Result<[u32; 4], Error> {
+    ) -> Result<[u32; 4], IpcError> {
         const IOCTL_SEND_SDIO_CMD: u32 = 0x7;
         let sector_offset = if self.is_sdhc {
             sector_offset
@@ -217,18 +290,25 @@ impl SDCard {
                 u32::try_from(sectors.len() * 512).unwrap(),
             ];
 
-            s.sd0_fd
-                .ioctlv(
-                    IOCTL_SEND_SDIO_CMD,
-                    2,
-                    1,
-                    &mut [
-                        IoVec::new(&mut sdio_cmd),
-                        IoVec::new(&mut buffer),
-                        IoVec::new(&mut sdio_resp),
-                    ],
-                )
-                .unwrap();
+            if let Ok(req) = IpcRequest::ioctlv::<2, 1>(
+                s.sd0_fd,
+                IOCTL_SEND_SDIO_CMD,
+                Box::new([
+                    IoVec::new(&mut sdio_cmd),
+                    IoVec::new(&mut buffer),
+                    IoVec::new(&mut sdio_resp),
+                ]),
+            )
+            .send()
+            {
+                let _iovecs = unsafe {
+                    Box::from_raw(from_exposed_addr_mut::<[IoVec; 3]>(
+                        (req.args[3] | 0x8000_0000)
+                            .try_into()
+                            .expect("Unable to shift from phyiscal to virtual"),
+                    ))
+                };
+            }
         });
 
         dc_flush_range(sectors.as_ptr().cast::<u8>(), sectors.len() * 512);
@@ -236,31 +316,45 @@ impl SDCard {
         Ok(sdio_resp)
     }
 
-    pub fn num_bytes(&mut self) -> Result<[u32; 4], Error> {
+    /// # Errors
+    /// See `ipc::IpcError`
+    pub fn num_bytes(&mut self) -> Result<[u32; 4], IpcError> {
         const IOCTL_SEND_SDIO_CMD: u32 = 0x7;
 
         let sdio_command = SDIOCommand::SendCsd;
         let sdio_command_u32 = sdio_command.as_u32();
         let command_type = sdio_command.command_type() as u32;
         let response_type = sdio_command.response_type() as u32;
-        let mut sdio_response = [0u32; 4];
-        self.with_chip_select(|s| {
-            let mut sdio_cmd = [
-                sdio_command_u32,
-                command_type,
-                response_type,
-                s.rca.unwrap() << 16,
-                0,
-                0,
-                0,
-            ];
+        let mut sdio_response: Result<[u32; 4], IpcError> = Ok([0u32; 4]);
 
-            s.sd0_fd
-                .ioctl(IOCTL_SEND_SDIO_CMD, &mut sdio_cmd, &mut sdio_response)
-                .expect("SDIO FAILED");
+        self.with_chip_select(|s| {
+            if let Some(response) = IpcRequest::ioctl(
+                s.sd0_fd,
+                IOCTL_SEND_SDIO_CMD,
+                Box::new([
+                    sdio_command_u32,
+                    command_type,
+                    response_type,
+                    s.rca.unwrap() << 16,
+                    0,
+                    0,
+                    0,
+                ]),
+                Box::new([0u32; 4]),
+            )
+            .send()
+            .expect("Unable to send ioctl")
+            .take_output::<[u32; 4]>()
+            {
+                sdio_response = Ok(*response);
+            } else {
+                sdio_response = Err(IpcError::Other(
+                    "Unable to take sdio response from ipc request",
+                ));
+            }
         });
 
-        Ok(sdio_response)
+        sdio_response
     }
 }
 

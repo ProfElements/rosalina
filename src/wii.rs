@@ -1,4 +1,6 @@
-use crate::ios::{FileAccessMode, Ios};
+use alloc::{ffi::CString, vec::Vec};
+
+use crate::ipc::rev2::{IpcAccessMode, IpcRequest};
 
 #[repr(C)]
 pub struct StateFlags {
@@ -79,29 +81,46 @@ pub struct Wii {
 
 impl Wii {
     pub fn init() -> Self {
-        let mut state_buf = [0u8; core::mem::size_of::<StateFlags>()];
-        let mut nand_info_buf = [0u8; core::mem::size_of::<NandBootInfo>()];
+        let state_buf = Vec::with_capacity(core::mem::size_of::<StateFlags>());
+        let nand_info_buf = Vec::with_capacity(4120);
 
         let mut flags = None;
         let mut info = None;
 
-        if let Ok(mut state) = Ios::open(
-            "/title/00000001/00000002/data/state.dat",
-            FileAccessMode::Read,
-        ) {
-            if state.read(&mut state_buf).is_ok() {
-                flags = Some(StateFlags::try_from(&state_buf).unwrap());
-            };
-        };
-
-        if let Ok(mut nand_info) = Ios::open("/shared2/sys/NANDBOOTINFO", FileAccessMode::Read) {
-            if nand_info.read(&mut nand_info_buf).is_ok() {
-                info = Some(NandBootInfo::try_from(&nand_info_buf).unwrap());
+        if let Ok(req) = IpcRequest::open(
+            CString::new("/title/00000001/00000002/data/state.dat").unwrap(),
+            IpcAccessMode::Read,
+        )
+        .send()
+        {
+            let fd = req.ret;
+            if let Ok(mut req) = IpcRequest::read(fd.try_into().unwrap(), state_buf).send() {
+                if let Some(buf) = req.take_buf() {
+                    let state_data_buf: &[u8; 32] = buf.as_slice().try_into().unwrap();
+                    flags = Some(StateFlags::try_from(state_data_buf).unwrap());
+                    if !Self::valid_checksum(state_data_buf) {
+                        crate::println!("Invalid checksum for state data buf");
+                    }
+                };
             }
-        };
+        }
 
-        if flags.is_some() && info.is_some() {
-            while Self::valid_checksum(&state_buf) && Self::valid_checksum(&nand_info_buf) {}
+        if let Ok(req) = IpcRequest::open(
+            CString::new("/shared2/sys/NANDBOOTINFO").unwrap(),
+            IpcAccessMode::Read,
+        )
+        .send()
+        {
+            let fd = req.ret;
+            if let Ok(mut req) = IpcRequest::read(fd.try_into().unwrap(), nand_info_buf).send() {
+                if let Some(buf) = req.take_buf() {
+                    let info_buf: &[u8; 4120] = buf.as_slice().try_into().unwrap();
+                    info = Some(NandBootInfo::try_from(info_buf).unwrap());
+                    if !Self::valid_checksum(info_buf) {
+                        crate::println!("Invalid checksum for info buf");
+                    }
+                }
+            }
         }
 
         Self {

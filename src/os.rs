@@ -1,9 +1,6 @@
-use core::{
-    mem::ManuallyDrop,
-    ptr::from_exposed_addr_mut,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use core::{mem::ManuallyDrop, ptr::from_exposed_addr_mut};
 
+use alloc::ffi::CString;
 use bit_field::BitField;
 use linked_list_allocator::LockedHeap;
 
@@ -12,8 +9,7 @@ use crate::{
     exception::Exception,
     exi::ExternalInterface,
     interrupts,
-    ios::{FileAccessMode, Ios},
-    ipc::{ios_ioctl_async, Ipc},
+    ipc::{rev2::IpcAccessMode, rev2::IpcRequest, Ipc},
     mmio::{
         dsp::{
             AddrHi, AddrLo, AramDmaCountHi, AramDmaCountLo, AramSize, DmaType, DspControl, Halt,
@@ -97,38 +93,54 @@ impl OS {
 
         interrupts::enable();
 
-        let _ = ManuallyDrop::new(Ios::open("/dev/es", FileAccessMode::None).unwrap());
-        let _ = Ios::open("/dev/stm/immediate", FileAccessMode::None).unwrap();
-        let event_hook = Ios::open("/dev/stm/eventhook", FileAccessMode::None).unwrap();
-
-        EVT_FD.store(event_hook.fd(), Ordering::Relaxed);
-
-        ios_ioctl_async(
-            event_hook.fd().try_into().unwrap(),
-            0x1000,
-            &[0u8; 0x20],
-            &[0u8; 0x20],
-            Some(stm_event_handler),
-            None::<&mut ()>,
+        let _ = ManuallyDrop::new(
+            IpcRequest::open(CString::new("/dev/es").unwrap(), IpcAccessMode::ReadWrite).send(),
         );
 
+        let _ = IpcRequest::open(
+            CString::new("/dev/stm/immediate").unwrap(),
+            IpcAccessMode::ReadWrite,
+        )
+        .send();
+
+        let _event_hook = IpcRequest::open(
+            CString::new("/dev/stm/eventhook").unwrap(),
+            IpcAccessMode::ReadWrite,
+        )
+        .send();
+        /* Temporarily disable so I don't have to completely rearchitech ipc stuff rn
+        EVT_FD.store(event_hook.ret.try_into().unwrap(), Ordering::Relaxed);
+
+        const IOCTL_STM_EVENTHOOK: u32 = 0x1000;
+        let _request = IpcRequest::ioctl(
+            EVT_FD.load(Ordering::Relaxed).try_into().unwrap(),
+            IOCTL_STM_EVENTHOOK,
+            Box::new([0u8; 0x20]),
+            Box::new([0u8; 0x20]),
+        )
+        .with_callback(stm_event_handler)
+        .send();
+        */
         let _ = Wii::init();
         Self
     }
 }
 
+/*
 static EVT_FD: AtomicUsize = AtomicUsize::new(0);
 
-fn stm_event_handler(_data: *mut ()) {
-    ios_ioctl_async(
+fn stm_event_handler(_data: *mut IpcRequest) {
+    crate::println!("EVENT HANDLER RUN");
+    IpcRequest::ioctl(
         EVT_FD.load(Ordering::Relaxed).try_into().unwrap(),
         0x1000,
-        &[0u8; 0x20],
-        &[0u8; 0x20],
-        Some(stm_event_handler),
-        None::<&mut ()>,
-    );
-}
+        Box::new([0u8; 0x20]),
+        Box::new([0u8; 0x20]),
+    )
+    .with_callback(stm_event_handler)
+    .send()
+    .expect("SHOULDNT FAIL");
+}*/
 
 #[repr(align(32))]
 pub struct Align32<T>(pub T);

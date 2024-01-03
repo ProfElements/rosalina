@@ -1,10 +1,16 @@
 #![no_std]
-#![feature(start, asm_experimental_arch, alloc_error_handler, strict_provenance)]
+#![feature(
+    start,
+    asm_experimental_arch,
+    alloc_error_handler,
+    strict_provenance,
+    exposed_provenance
+)]
 #![cfg_attr(not(miri), no_main)]
 
 extern crate alloc;
 
-use core::{alloc::Layout, panic::PanicInfo, ptr::from_exposed_addr, time::Duration};
+use core::{alloc::Layout, panic::PanicInfo, ptr::from_exposed_addr};
 
 use rosalina::{
     clock::Instant,
@@ -12,7 +18,7 @@ use rosalina::{
     exi::ExternalInterface,
     gfx,
     gx::Fifo,
-    interrupts,
+    interrupts, isfs,
     mmio::si::SiChannel,
     os::OS,
     pad::Pad,
@@ -95,9 +101,9 @@ extern "C" fn main() -> ! {
     fifo.set_copy_filter_default();
     // fifo.set_su_lpsize(6, 6, 0, 0, false);
     //fifo.set_gen_mode(1, 1, false, 1, 0, 0, 0);
-
     let mut sd_card = SDCard::new().expect("Couldn't open sd_card");
     let sectors = [0u8; 512];
+
     let _resp = sd_card.read_sectors(0, &mut [sectors]).unwrap();
     let _resp = sd_card.num_bytes().unwrap();
 
@@ -106,6 +112,10 @@ extern "C" fn main() -> ! {
         "Resp: {:X}, {:X}, {:X}, {:X}",
         _resp[0], _resp[1], _resp[2], _resp[3]
     );
+
+    let sysconf_data = isfs::read("/shared2/sys/SYSCONF").unwrap();
+
+    println!("{sysconf_data:?}");
 
     'main_loop: loop {
         let status = pad.read();

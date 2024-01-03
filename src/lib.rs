@@ -4,9 +4,10 @@
     asm_const,
     naked_functions,
     strict_provenance,
+    exposed_provenance,
+    vec_into_raw_parts,
     inline_const,
     extern_types,
-    ptr_from_ref,
     slice_as_chunks
 )]
 #![warn(clippy::std_instead_of_alloc, clippy::std_instead_of_core)]
@@ -51,7 +52,7 @@ pub mod sram;
 pub mod vi;
 pub mod wii;
 
-pub(crate) mod utils;
+pub mod utils;
 
 pub mod gx;
 /// # Safety
