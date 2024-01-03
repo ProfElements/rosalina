@@ -22,8 +22,8 @@ impl Instant {
             );
         }
 
-        instant.set_bits(0..32, time2.into());
-        instant.set_bits(32..64, time1.into());
+        instant = bitfrob::u64_with_value(0, 31, instant, time2.into());
+        instant = bitfrob::u64_with_value(32, 63, instant, time1.into());
 
         Self { ticks: instant }
     }
@@ -48,12 +48,12 @@ impl Instant {
         Self { ticks }
     }
 
-    pub fn duration_since(&self, earlier: Instant) -> Duration {
+    pub fn duration_since(&self, earlier: Self) -> Duration {
         Duration::from_nanos((*self - earlier).nanosecs())
     }
 
     pub fn elapsed(&self) -> Duration {
-        Duration::from_nanos((Instant::now() - *self).nanosecs())
+        Duration::from_nanos((Self::now() - *self).nanosecs())
     }
 }
 
